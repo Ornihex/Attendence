@@ -1,6 +1,9 @@
 import os
 from fastapi import FastAPI
 import uvicorn
+import app.db as db
+
+engine = db.engine
 
 app = FastAPI()
 
