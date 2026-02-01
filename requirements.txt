@@ -1,3 +1,4 @@
 fastapi[all]
 bcrypt
 sqlalchemy
+psycopg2-binary
