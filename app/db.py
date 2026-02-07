@@ -9,21 +9,42 @@ from datetime import datetime
 class Base(DeclarativeBase):
 	pass
 
+class Teacher(Base):
+    __tablename__ = "teachers"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    password: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.now, onupdate=datetime.now)
+
 class Class(Base):
     __tablename__ = "classes"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    teacher_id: Mapped[str] = mapped_column(String, ForeignKey("teachers.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+    
+class Pupil(Base):
+    __tablename__ = "pupils"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    class_id: Mapped[str] = mapped_column(String, ForeignKey("classes.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.now, onupdate=datetime.now)
     
     
     
     
     
-POSTGRES_HOST = os.getenv("DB_HOST", 'ep-polished-term-ah310ruc-pooler.c-3.us-east-1.aws.neon.tech')
+POSTGRES_HOST = os.getenv("DB_HOST", 'db.com')
 POSTGRES_PORT = os.getenv("DB_PORT", '5432')
-POSTGRES_USERNAME = os.getenv("DB_USER", 'neondb_owner')
-POSTGRES_PASSWORD = os.getenv("DB_PASSWORD", 'npg_Qzf1jFDsJc6P')
-POSTGRES_DATABASE = os.getenv("DB_NAME", 'neondb')
+POSTGRES_USERNAME = os.getenv("DB_USER", 'db_user')
+POSTGRES_PASSWORD = os.getenv("DB_PASSWORD", 'password')
+POSTGRES_DATABASE = os.getenv("DB_NAME", 'db_name')
 DB_URL = f'postgresql://{POSTGRES_USERNAME}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE}?sslmode=require&channel_binding=require'
 
 engine = create_engine(DB_URL, echo=True)
