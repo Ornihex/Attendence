@@ -5,11 +5,14 @@ import os
 import uuid
 import bcrypt
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv('app/.env')
 
 class Base(DeclarativeBase):
 	pass
 
-class Teacher(Base):
+class TeacherBase(Base):
     __tablename__ = "teachers"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

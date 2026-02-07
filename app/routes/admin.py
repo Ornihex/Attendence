@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from db1 import engine
+from db import engine
 from sqlalchemy.orm import sessionmaker
 
 

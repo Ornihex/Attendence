@@ -2,3 +2,5 @@ fastapi[all]
 bcrypt
 sqlalchemy
 psycopg2-binary
+pyjwt
+pydantic[email]
