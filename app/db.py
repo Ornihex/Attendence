@@ -50,7 +50,7 @@ class AdminBase(Base):
     updated_at: Mapped[datetime] = mapped_column(default=datetime.now, onupdate=datetime.now)
 
 
-class AttendenceBase(Base):
+class AttendanceBase(Base):
     __tablename__ = "attendance"
     
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
