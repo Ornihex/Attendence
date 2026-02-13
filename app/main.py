@@ -3,9 +3,9 @@ from fastapi import FastAPI
 import uvicorn
 import db
 from dotenv import load_dotenv
-load_dotenv('app/.env')
 from routes import teacher
 
+load_dotenv('app/.env')
 engine = db.engine
 
 app = FastAPI()

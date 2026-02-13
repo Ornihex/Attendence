@@ -22,7 +22,7 @@ class TeacherBase(Base):
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.now, onupdate=datetime.now)
 
-class Class(Base):
+class ClassBase(Base):
     __tablename__ = "classes"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -30,7 +30,7 @@ class Class(Base):
     teacher_id: Mapped[str] = mapped_column(String, ForeignKey("teachers.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
     
-class Pupil(Base):
+class PupilBase(Base):
     __tablename__ = "pupils"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -38,7 +38,27 @@ class Pupil(Base):
     class_id: Mapped[str] = mapped_column(String, ForeignKey("classes.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.now, onupdate=datetime.now)
+
+class AdminBase(Base):
+    __tablename__ = "admins"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    password: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.now, onupdate=datetime.now)
+
+
+class AttendenceBase(Base):
+    __tablename__ = "attendance"
     
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    class_id: Mapped[str] = mapped_column(String, ForeignKey("classes.id"), nullable=False)
+    date: Mapped[datetime] = mapped_column(default=datetime.now)
+    pupils: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    
+        
     
     
     

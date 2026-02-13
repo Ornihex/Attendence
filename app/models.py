@@ -13,3 +13,17 @@ class Teacher(BaseModel):
             if not v:
                 raise ValidationError("Name is required for registration")
         return v
+    
+class Pupil(BaseModel):
+    name: str
+    class_id: str
+    
+
+class Class(BaseModel):
+    class_id: str
+    teacher_id: str
+    
+class Attendance(BaseModel):
+    class_id: str
+    date: str
+    pupils: list[str]
