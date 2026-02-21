@@ -5,6 +5,6 @@ alembic
 psycopg2-binary
 pyjwt
 pydantic[email]
-playwright
+#playwright
 pytest
 requests
