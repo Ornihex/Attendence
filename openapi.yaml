@@ -1,0 +1,471 @@
+openapi: 3.0.3
+info:
+  title: Student Attendance API
+  version: 1.0.0
+  description: API для учёта посещаемости учеников
+
+servers:
+  - url: /api/v1
+
+tags:
+  - name: Auth
+  - name: Users
+  - name: Classes
+  - name: Students
+  - name: Attendance
+  - name: Statistics
+
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    Role:
+      type: string
+      enum: [teacher, admin]
+
+    AttendanceStatus:
+      type: string
+      enum: [present, excused, unexcused]
+
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:
+          type: string
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        userId:
+          type: integer
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        login:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        classId:
+          type: integer
+          nullable: true
+
+    UpdateCredentialsRequest:
+      type: object
+      properties:
+        login:
+          type: string
+        password:
+          type: string
+
+    CreateTeacherRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:
+          type: string
+        password:
+          type: string
+
+    ClassResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        teacherId:
+          type: integer
+
+    CreateClassRequest:
+      type: object
+      required: [name, teacherId]
+      properties:
+        name:
+          type: string
+        teacherId:
+          type: integer
+
+    StudentResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        fullName:
+          type: string
+        isActive:
+          type: boolean
+
+    CreateStudentRequest:
+      type: object
+      required: [fullName]
+      properties:
+        fullName:
+          type: string
+
+    UpdateStudentRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+        isActive:
+          type: boolean
+
+    AttendanceRecord:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        status:
+          $ref: '#/components/schemas/AttendanceStatus'
+
+    AttendanceResponse:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        classId:
+          type: integer
+        isFilled:
+          type: boolean
+          description: true, если по классу за эту дату есть хотя бы одна сохраненная запись посещаемости
+        records:
+          type: array
+          items:
+            type: object
+            properties:
+              studentId:
+                type: integer
+              fullName:
+                type: string
+              status:
+                $ref: '#/components/schemas/AttendanceStatus'
+
+    AttendanceByClassesResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/AttendanceResponse'
+
+    AttendanceRequest:
+      type: object
+      required: [classId, records]
+      properties:
+        classId:
+          type: integer
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceRecord'
+
+    WeeklyStatisticsResponse:
+      type: object
+      properties:
+        classId:
+          type: integer
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        summary:
+          type: object
+          properties:
+            present:
+              type: integer
+            excused:
+              type: integer
+            unexcused:
+              type: integer
+        students:
+          type: array
+          items:
+            type: object
+            properties:
+              studentId:
+                type: integer
+              fullName:
+                type: string
+              present:
+                type: integer
+              excused:
+                type: integer
+              unexcused:
+                type: integer
+
+    WeeklyStatisticsByClassesResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/WeeklyStatisticsResponse'
+
+paths:
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Авторизация пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная авторизация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Неверные данные
+
+  /users:
+    post:
+      tags: [Users]
+      summary: Зарегистрировать учителя (admin only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTeacherRequest'
+      responses:
+        '201':
+          description: Учитель создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '403':
+          description: Нет прав
+        '409':
+          description: Логин уже занят
+
+    get:
+      tags: [Users]
+      summary: Получить список учителей (admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Список пользователей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserResponse'
+        '403':
+          description: Нет прав
+
+  /users/{id}/credentials:
+    patch:
+      tags: [Users]
+      summary: Изменить логин/пароль учителя (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCredentialsRequest'
+      responses:
+        '200':
+          description: Обновлено
+        '403':
+          description: Нет прав
+
+  /classes:
+    get:
+      tags: [Classes]
+      summary: Получить список классов
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Список классов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClassResponse'
+
+    post:
+      tags: [Classes]
+      summary: Создать класс (admin only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClassRequest'
+      responses:
+        '201':
+          description: Класс создан
+
+  /classes/{classId}/students:
+    get:
+      tags: [Students]
+      summary: Получить учеников класса
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Список учеников
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudentResponse'
+
+    post:
+      tags: [Students]
+      summary: Добавить ученика
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStudentRequest'
+      responses:
+        '201':
+          description: Ученик создан
+
+  /students/{id}:
+    patch:
+      tags: [Students]
+      summary: Обновить ученика
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStudentRequest'
+      responses:
+        '200':
+          description: Обновлено
+
+  /attendance:
+    get:
+      tags: [Attendance]
+      summary: Получить посещаемость за дату (по классу или по всем классам для admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: classId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Посещаемость
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/AttendanceResponse'
+                  - $ref: '#/components/schemas/AttendanceByClassesResponse'
+
+    put:
+      tags: [Attendance]
+      summary: Заполнить или обновить посещаемость
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+      responses:
+        '200':
+          description: Сохранено
+
+  /statistics/weekly:
+    get:
+      tags: [Statistics]
+      summary: Получить недельную статистику (по классу или по всем классам для admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: classId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Статистика
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/WeeklyStatisticsResponse'
+                  - $ref: '#/components/schemas/WeeklyStatisticsByClassesResponse'

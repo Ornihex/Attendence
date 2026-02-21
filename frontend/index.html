@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Attendence Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/frontend/styles.css" />
+  </head>
+  <body>
+    <div class="bg-shape bg-shape-a"></div>
+    <div class="bg-shape bg-shape-b"></div>
+    <main class="app-shell">
+      <section id="loginView" class="panel login-panel">
+        <h1>Attendence Panel</h1>
+        <p class="muted">Управление посещаемостью учеников</p>
+        <form id="loginForm" class="form-grid">
+          <label>API Base URL <input id="apiBase" type="text" /></label>
+          <label>Логин <input id="login" type="text" required /></label>
+          <label>Пароль <input id="password" type="password" required /></label>
+          <button type="submit">Войти</button>
+        </form>
+      </section>
+
+      <section id="appView" class="panel hidden">
+        <header class="topbar">
+          <div>
+            <h2>Дашборд</h2>
+            <p id="sessionInfo" class="muted"></p>
+          </div>
+          <button id="logoutBtn" class="ghost-btn">Выйти</button>
+        </header>
+
+        <nav class="tabs">
+          <button class="tab active" data-tab="classesTab">Классы</button>
+          <button class="tab" data-tab="attendanceTab">Посещаемость</button>
+          <button class="tab" data-tab="statsTab">Статистика</button>
+          <button class="tab admin-only" data-tab="usersTab">Учителя</button>
+        </nav>
+
+        <section id="classesTab" class="tab-content active">
+          <div class="grid two-cols">
+            <article class="card">
+              <h3>Выбор класса</h3>
+              <form class="row-form">
+                <label
+                  >Класс
+                  <select id="dashboardClassSelect">
+                    <option value="">Выберите класс</option>
+                  </select>
+                </label>
+                <button type="button" id="refreshClasses">Обновить</button>
+              </form>
+            </article>
+            <article id="createClassCard" class="card admin-only">
+              <h3>Создать класс</h3>
+              <form id="createClassForm" class="form-grid">
+                <label>Название класса <input id="className" type="text" required /></label>
+                <label
+                  >Учитель
+                  <select id="classTeacherId" required>
+                    <option value="">Выберите учителя</option>
+                  </select>
+                </label>
+                <button type="submit">Создать</button>
+              </form>
+            </article>
+          </div>
+
+          <article class="card">
+            <h3>Ученики выбранного класса</h3>
+            <p id="selectedClassInfo" class="muted">Класс не выбран</p>
+            <div class="grid two-cols">
+              <form id="addStudentForm" class="form-grid">
+                <label>ФИО ученика <input id="studentFullName" type="text" required /></label>
+                <button type="submit">Добавить</button>
+              </form>
+              <form id="updateStudentForm" class="form-grid">
+                <label
+                  >Ученик
+                  <select id="updateStudentId" required>
+                    <option value="">Выберите ученика</option>
+                  </select>
+                </label>
+                <label>Новое ФИО <input id="updateStudentName" type="text" /></label>
+                <label
+                  >Активен
+                  <select id="updateStudentActive">
+                    <option value="">Не менять</option>
+                    <option value="true">Да</option>
+                    <option value="false">Нет</option>
+                  </select>
+                </label>
+                <button type="submit">Обновить</button>
+              </form>
+            </div>
+            <div id="studentsList" class="list"></div>
+          </article>
+        </section>
+
+        <section id="attendanceTab" class="tab-content">
+          <div class="grid two-cols">
+            <article class="card">
+              <h3>Просмотр посещаемости за дату</h3>
+              <form id="attendanceLoadForm" class="row-form">
+                <label>Дата <input id="attendanceDate" type="date" required /></label>
+                <label
+                  >Класс
+                  <select id="attendanceClassId">
+                    <option value="">Выберите класс</option>
+                  </select>
+                </label>
+                <label class="admin-only"
+                  ><input id="attendanceAllClasses" type="checkbox" />
+                  Все классы (admin)</label
+                >
+                <button type="submit">Загрузить</button>
+              </form>
+              <div id="attendanceResult" class="list"></div>
+            </article>
+
+            <article class="card">
+              <h3>Заполнить / обновить посещаемость</h3>
+              <form id="attendanceEditForm" class="row-form">
+                <label>Дата <input id="attendanceEditDate" type="date" required /></label>
+                <label
+                  >Класс
+                  <select id="attendanceEditClassId">
+                    <option value="">Выберите класс</option>
+                  </select>
+                </label>
+                <button type="submit">Загрузить учеников</button>
+              </form>
+              <div id="attendanceEditInfo" class="muted">Сначала загрузите учеников</div>
+              <div id="attendanceBulkActions" class="bulk-actions hidden">
+                <button type="button" id="setAllPresent" class="ghost-btn">Всем present</button>
+                <button type="button" id="setAllExcused" class="ghost-btn">Всем excused</button>
+                <button type="button" id="setAllUnexcused" class="ghost-btn">Всем unexcused</button>
+              </div>
+              <div id="attendanceEditTable"></div>
+              <button id="attendanceSaveBtn" class="hidden">Сохранить посещаемость</button>
+            </article>
+          </div>
+        </section>
+
+        <section id="statsTab" class="tab-content">
+          <article class="card">
+            <h3>Недельная статистика</h3>
+            <form id="statsForm" class="row-form">
+              <label>Начало недели <input id="statsStartDate" type="date" required /></label>
+              <label
+                >Класс
+                <select id="statsClassId">
+                  <option value="">Выберите класс</option>
+                </select>
+              </label>
+              <label class="admin-only"
+                ><input id="statsAllClasses" type="checkbox" />
+                Все классы (admin)</label
+              >
+              <button type="submit">Показать</button>
+            </form>
+            <div id="statsResult" class="list"></div>
+          </article>
+        </section>
+
+        <section id="usersTab" class="tab-content admin-only">
+          <div class="grid two-cols">
+            <article class="card">
+              <h3>Регистрация учителя</h3>
+              <form id="createTeacherForm" class="form-grid">
+                <label>Логин <input id="teacherLogin" type="text" required /></label>
+                <label>Пароль <input id="teacherPassword" type="password" required /></label>
+                <button type="submit">Создать</button>
+              </form>
+            </article>
+            <article class="card">
+              <h3>Смена credentials</h3>
+              <form id="updateCredentialsForm" class="form-grid">
+                <label
+                  >Учитель
+                  <select id="credTeacherId" required>
+                    <option value="">Выберите учителя</option>
+                  </select>
+                </label>
+                <label>Новый логин <input id="credLogin" type="text" /></label>
+                <label>Новый пароль <input id="credPassword" type="password" /></label>
+                <button type="submit">Обновить</button>
+              </form>
+            </article>
+          </div>
+          <article class="card">
+            <h3>Учителя</h3>
+            <button id="refreshUsers">Обновить список</button>
+            <div id="usersList" class="list"></div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <aside id="toast" class="toast hidden"></aside>
+    <script src="/frontend/app.js"></script>
+  </body>
+</html>

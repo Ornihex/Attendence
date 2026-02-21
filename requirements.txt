@@ -1,6 +1,10 @@
 fastapi[all]
 bcrypt
 sqlalchemy
+alembic
 psycopg2-binary
 pyjwt
 pydantic[email]
+playwright
+pytest
+requests

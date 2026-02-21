@@ -1,29 +1,47 @@
-from pydantic import BaseModel, EmailStr, ValidationInfo, field_validator, ValidationError
+from datetime import date
 
-class Teacher(BaseModel):
-    name: str | None = None
-    email: EmailStr
+from pydantic import BaseModel, Field
+
+
+class LoginRequest(BaseModel):
+    login: str
     password: str
-    
-    @field_validator('name')
-    def validate_name(cls, v: str, info: ValidationInfo) -> str:
-        path = info.context.get("path") if info.context else None
-        
-        if path == "/api/register_teacher":
-            if not v:
-                raise ValidationError("Name is required for registration")
-        return v
-    
-class Pupil(BaseModel):
-    name: str
-    class_id: str
-    
 
-class Class(BaseModel):
-    class_id: str
-    teacher_id: str
-    
-class Attendance(BaseModel):
-    class_id: str
-    date: str
-    pupils: list[str]
+
+class UpdateCredentialsRequest(BaseModel):
+    login: str | None = None
+    password: str | None = None
+
+
+class CreateTeacherRequest(BaseModel):
+    login: str
+    password: str
+
+
+class CreateClassRequest(BaseModel):
+    name: str
+    teacher_id: int = Field(alias="teacherId")
+
+
+class CreateStudentRequest(BaseModel):
+    full_name: str = Field(alias="fullName")
+
+
+class UpdateStudentRequest(BaseModel):
+    full_name: str | None = Field(default=None, alias="fullName")
+    is_active: bool | None = Field(default=None, alias="isActive")
+
+
+class AttendanceRecordRequest(BaseModel):
+    student_id: int = Field(alias="studentId")
+    status: str
+
+
+class AttendanceRequest(BaseModel):
+    class_id: int = Field(alias="classId")
+    records: list[AttendanceRecordRequest]
+
+
+class WeeklyStatisticsQuery(BaseModel):
+    start_date: date = Field(alias="startDate")
+    class_id: int | None = Field(default=None, alias="classId")
