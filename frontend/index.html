@@ -194,6 +194,35 @@
               </form>
             </article>
           </div>
+          <div class="grid two-cols">
+            <article class="card">
+              <h3>Собственные credentials</h3>
+              <form id="selfCredentialsForm" class="form-grid">
+                <label>Новый логин <input id="selfLogin" type="text" /></label>
+                <label>Новый пароль <input id="selfPassword" type="password" /></label>
+                <button type="submit">Обновить себя</button>
+              </form>
+            </article>
+            <article class="card">
+              <h3>Изменение роли пользователя</h3>
+              <form id="updateRoleForm" class="form-grid">
+                <label
+                  >Пользователь
+                  <select id="roleUserId" required>
+                    <option value="">Выберите пользователя</option>
+                  </select>
+                </label>
+                <label
+                  >Роль
+                  <select id="roleValue" required>
+                    <option value="teacher">teacher</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </label>
+                <button type="submit">Изменить роль</button>
+              </form>
+            </article>
+          </div>
           <article class="card">
             <h3>Учителя</h3>
             <button id="refreshUsers">Обновить список</button>

@@ -72,6 +72,7 @@ def test_full_api_smoke(server_process):
         200,
         json={"login": "admin", "password": "admin123"},
     )
+    admin_id = login_admin.json()["userId"]
     admin_token = login_admin.json()["accessToken"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
 
@@ -84,7 +85,8 @@ def test_full_api_smoke(server_process):
     )
     teacher_id = register_teacher.json()["id"]
 
-    _request("GET", "/users", 200, headers=admin_headers)
+    users_list = _request("GET", "/users", 200, headers=admin_headers).json()
+    assert any("promotedBy" in item for item in users_list), "UserResponse must include promotedBy"
 
     updated_teacher_password = "pass12345"
     _request(
@@ -168,3 +170,45 @@ def test_full_api_smoke(server_process):
     )
     assert isinstance(admin_all_classes_weekly.json(), list), "Admin weekly statistics response without classId must be a list"
     assert any(item["classId"] == class_id for item in admin_all_classes_weekly.json()), "Created class not found in all-classes weekly statistics response"
+
+    # Promote teacher to admin.
+    _request(
+        "PATCH",
+        f"/users/{teacher_id}/role",
+        200,
+        headers=admin_headers,
+        json={"role": "admin"},
+    )
+
+    promoted_admin_login = _request(
+        "POST",
+        "/auth/login",
+        200,
+        json={"login": teacher_login, "password": updated_teacher_password},
+    )
+    promoted_admin_headers = {"Authorization": f"Bearer {promoted_admin_login.json()['accessToken']}"}
+
+    # Admin can change own credentials.
+    new_promoted_password = "pass123456"
+    _request(
+        "PATCH",
+        "/profile/credentials",
+        200,
+        headers=promoted_admin_headers,
+        json={"password": new_promoted_password},
+    )
+    _request(
+        "POST",
+        "/auth/login",
+        200,
+        json={"login": teacher_login, "password": new_promoted_password},
+    )
+
+    # Appointed admin cannot change role of admin who appointed them.
+    _request(
+        "PATCH",
+        f"/users/{admin_id}/role",
+        403,
+        headers=promoted_admin_headers,
+        json={"role": "teacher"},
+    )

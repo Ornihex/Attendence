@@ -15,6 +15,7 @@ from models import (
     CreateTeacherRequest,
     LoginRequest,
     UpdateCredentialsRequest,
+    UpdateRoleRequest,
     UpdateStudentRequest,
 )
 from utils.jwt import RANDOM_SECRET, create_jwt
@@ -44,6 +45,13 @@ def _require_role(payload: dict, allowed: set[str]) -> None:
     role = payload.get("role")
     if role not in allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
+def _get_current_user(s, payload: dict) -> UserBase:
+    user = s.query(UserBase).filter(UserBase.id == int(payload["sub"])).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+    return user
 
 
 def _resolve_class_for_user(payload: dict, requested_class_id: int | None) -> int:
@@ -145,17 +153,18 @@ def get_users(request: Request):
     payload = _get_token_payload(request)
     _require_role(payload, {RoleEnum.admin.value})
     with session() as s:
-        teachers = s.query(UserBase).filter(UserBase.role == RoleEnum.teacher).all()
+        users = s.query(UserBase).order_by(UserBase.id.asc()).all()
         class_rows = s.query(ClassBase.teacher_id, ClassBase.id).all()
         class_map = {teacher_id: class_id for teacher_id, class_id in class_rows}
         return [
             {
-                "id": teacher.id,
-                "login": teacher.login,
-                "role": _role_value(teacher.role),
-                "classId": class_map.get(teacher.id),
+                "id": user.id,
+                "login": user.login,
+                "role": _role_value(user.role),
+                "classId": class_map.get(user.id),
+                "promotedBy": user.promoted_by,
             }
-            for teacher in teachers
+            for user in users
         ]
 
 
@@ -195,6 +204,51 @@ def update_credentials(id: int, request: Request, payload: UpdateCredentialsRequ
         except IntegrityError:
             s.rollback()
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Login already exists")
+        return {"message": "Updated"}
+
+
+@router.patch("/profile/credentials")
+def update_my_credentials(request: Request, payload: UpdateCredentialsRequest):
+    token_payload = _get_token_payload(request)
+    if payload.login is None and payload.password is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No update fields provided")
+    with session() as s:
+        current_user = _get_current_user(s, token_payload)
+        if payload.login is not None:
+            current_user.login = payload.login
+        if payload.password is not None:
+            current_user.password = bcrypt.hashpw(payload.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        try:
+            s.commit()
+        except IntegrityError:
+            s.rollback()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Login already exists")
+        return {"message": "Updated"}
+
+
+@router.patch("/users/{id}/role")
+def update_user_role(id: int, request: Request, payload: UpdateRoleRequest):
+    token_payload = _get_token_payload(request)
+    _require_role(token_payload, {RoleEnum.admin.value})
+    if payload.role not in {RoleEnum.teacher.value, RoleEnum.admin.value}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid role")
+    with session() as s:
+        actor = _get_current_user(s, token_payload)
+        target = s.query(UserBase).filter(UserBase.id == id).first()
+        if not target:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+        # Appointed admin cannot change role of the admin who appointed them.
+        if actor.promoted_by == target.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+        new_role = RoleEnum(payload.role)
+        target.role = new_role
+        if new_role == RoleEnum.admin:
+            target.promoted_by = actor.id
+        else:
+            target.promoted_by = None
+        s.commit()
         return {"message": "Updated"}
 
 

@@ -64,6 +64,9 @@ components:
         classId:
           type: integer
           nullable: true
+        promotedBy:
+          type: integer
+          nullable: true
 
     UpdateCredentialsRequest:
       type: object
@@ -72,6 +75,13 @@ components:
           type: string
         password:
           type: string
+
+    UpdateRoleRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          $ref: '#/components/schemas/Role'
 
     CreateTeacherRequest:
       type: object
@@ -262,7 +272,7 @@ paths:
 
     get:
       tags: [Users]
-      summary: Получить список учителей (admin only)
+      summary: Получить список пользователей (admin only)
       security:
         - BearerAuth: []
       responses:
@@ -276,6 +286,25 @@ paths:
                   $ref: '#/components/schemas/UserResponse'
         '403':
           description: Нет прав
+
+  /profile/credentials:
+    patch:
+      tags: [Users]
+      summary: Изменить собственный логин/пароль
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCredentialsRequest'
+      responses:
+        '200':
+          description: Обновлено
+        '401':
+          description: Не авторизован
+        '409':
+          description: Логин уже занят
 
   /users/{id}/credentials:
     patch:
@@ -299,6 +328,31 @@ paths:
           description: Обновлено
         '403':
           description: Нет прав
+
+  /users/{id}/role:
+    patch:
+      tags: [Users]
+      summary: Изменить роль пользователя (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: Обновлено
+        '403':
+          description: Нет прав
+        '404':
+          description: Пользователь не найден
 
   /classes:
     get:

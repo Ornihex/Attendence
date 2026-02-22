@@ -60,14 +60,26 @@ const loadUsers = async () => {
   if (state.role !== "admin") return;
   const users = await request("/users");
   populateTeacherSelects(users);
+  populateRoleUserSelect(users);
   renderItems(
     "usersList",
     users,
     (u) =>
       `<b>#${u.id}</b> ${u.login} <span class="mono">(${u.role})</span><br><span class="muted">classId: ${
         u.classId ?? "-"
-      }</span>`
+      }, promotedBy: ${u.promotedBy ?? "-"}</span>`
   );
+};
+
+const populateRoleUserSelect = (users) => {
+  const select = el("roleUserId");
+  const prev = select.value;
+  select.innerHTML = ['<option value="">Выберите пользователя</option>']
+    .concat(users.map((u) => `<option value="${u.id}">#${u.id} - ${u.login} (${u.role})</option>`))
+    .join("");
+  if (prev && users.some((u) => String(u.id) === prev)) {
+    select.value = prev;
+  }
 };
 
 const populateTeacherSelects = (users) => {
@@ -432,6 +444,43 @@ const bindEvents = () => {
       e.target.reset();
       await loadUsers();
       toast("Credentials обновлены");
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+
+  el("selfCredentialsForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {};
+      const login = el("selfLogin").value.trim();
+      const password = el("selfPassword").value;
+      if (login) payload.login = login;
+      if (password) payload.password = password;
+      await request("/profile/credentials", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      e.target.reset();
+      await loadUsers();
+      toast("Собственные credentials обновлены");
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+
+  el("updateRoleForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await request(`/users/${el("roleUserId").value}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: el("roleValue").value }),
+      });
+      await loadUsers();
+      e.target.reset();
+      toast("Роль обновлена");
     } catch (err) {
       toast(err.message, true);
     }

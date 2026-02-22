@@ -13,6 +13,10 @@ class UpdateCredentialsRequest(BaseModel):
     password: str | None = None
 
 
+class UpdateRoleRequest(BaseModel):
+    role: str
+
+
 class CreateTeacherRequest(BaseModel):
     login: str
     password: str
