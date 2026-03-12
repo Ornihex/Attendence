@@ -11,7 +11,6 @@ tags:
   - name: Auth
   - name: Users
   - name: Classes
-  - name: Students
   - name: Attendance
   - name: Statistics
 
@@ -111,43 +110,12 @@ components:
         teacherId:
           type: integer
 
-    StudentResponse:
-      type: object
-      properties:
-        id:
-          type: integer
-        fullName:
-          type: string
-        isActive:
-          type: boolean
-
-    CreateStudentRequest:
-      type: object
-      required: [fullName]
-      properties:
-        fullName:
-          type: string
-
-    UpdateStudentRequest:
-      type: object
-      properties:
-        fullName:
-          type: string
-        isActive:
-          type: boolean
-
-    AttendanceRecord:
-      type: object
-      properties:
-        studentId:
-          type: integer
-
     ExcusedAbsence:
       type: object
-      required: [studentId, reason]
+      required: [fullName, reason]
       properties:
-        studentId:
-          type: integer
+        fullName:
+          type: string
         reason:
           type: string
 
@@ -171,8 +139,6 @@ components:
           items:
             type: object
             properties:
-              studentId:
-                type: integer
               fullName:
                 type: string
         absentExcused:
@@ -180,8 +146,6 @@ components:
           items:
             type: object
             properties:
-              studentId:
-                type: integer
               fullName:
                 type: string
               reason:
@@ -194,15 +158,19 @@ components:
 
     AttendanceRequest:
       type: object
-      required: [classId]
+      required: [classId, totalStudents, presentCount]
       properties:
         classId:
           type: integer
-        unexcusedStudentIds:
+        totalStudents:
+          type: integer
+        presentCount:
+          type: integer
+        absentUnexcused:
           type: array
           items:
-            type: integer
-        excused:
+            type: string
+        absentExcused:
           type: array
           items:
             $ref: '#/components/schemas/ExcusedAbsence'
@@ -389,69 +357,6 @@ paths:
       responses:
         '201':
           description: Класс создан
-
-  /classes/{classId}/students:
-    get:
-      tags: [Students]
-      summary: Получить учеников класса
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: classId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Список учеников
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/StudentResponse'
-
-    post:
-      tags: [Students]
-      summary: Добавить ученика
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: classId
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateStudentRequest'
-      responses:
-        '201':
-          description: Ученик создан
-
-  /students/{id}:
-    patch:
-      tags: [Students]
-      summary: Обновить ученика
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateStudentRequest'
-      responses:
-        '200':
-          description: Обновлено
 
   /attendance:
     get:

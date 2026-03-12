@@ -27,28 +27,17 @@ class CreateClassRequest(BaseModel):
     teacher_id: int = Field(alias="teacherId")
 
 
-class CreateStudentRequest(BaseModel):
-    full_name: str = Field(alias="fullName")
-
-
-class UpdateStudentRequest(BaseModel):
-    full_name: str | None = Field(default=None, alias="fullName")
-    is_active: bool | None = Field(default=None, alias="isActive")
-
-
-class AttendanceRecordRequest(BaseModel):
-    student_id: int = Field(alias="studentId")
-
-
 class ExcusedAbsenceRequest(BaseModel):
-    student_id: int = Field(alias="studentId")
+    full_name: str = Field(alias="fullName")
     reason: str
 
 
 class AttendanceRequest(BaseModel):
     class_id: int = Field(alias="classId")
-    unexcused_student_ids: list[int] = Field(default_factory=list, alias="unexcusedStudentIds")
-    excused: list[ExcusedAbsenceRequest] = Field(default_factory=list)
+    total_students: int = Field(alias="totalStudents")
+    present_count: int = Field(alias="presentCount")
+    absent_unexcused: list[str] = Field(default_factory=list, alias="absentUnexcused")
+    absent_excused: list[ExcusedAbsenceRequest] = Field(default_factory=list, alias="absentExcused")
 
 
 class WeeklyStatisticsQuery(BaseModel):

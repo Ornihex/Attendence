@@ -146,25 +146,6 @@ const applySelectedClass = async (classIdValue) => {
   el("attendanceEditClassId").value = String(state.selectedClassId);
   el("attendanceClassId").value = String(state.selectedClassId);
   el("statsClassId").value = String(state.selectedClassId);
-  await loadStudents();
-};
-
-const loadStudents = async () => {
-  if (!state.selectedClassId) return;
-  const students = await request(`/classes/${state.selectedClassId}/students`);
-  const select = el("updateStudentId");
-  const previousValue = select.value;
-  select.innerHTML = ['<option value="">Выберите ученика</option>']
-    .concat(students.map((s) => `<option value="${s.id}">#${s.id} - ${s.fullName}</option>`))
-    .join("");
-  if (previousValue && students.some((s) => String(s.id) === previousValue)) {
-    select.value = previousValue;
-  }
-  renderItems(
-    "studentsList",
-    students,
-    (s) => `<b>#${s.id}</b> ${s.fullName} <span class="muted">active: ${s.isActive ? "yes" : "no"}</span>`
-  );
 };
 
 const renderAttendanceTable = (block) => {
@@ -173,13 +154,13 @@ const renderAttendanceTable = (block) => {
   const unexcused = block.absentUnexcused || [];
   const excused = block.absentExcused || [];
   const unexcusedRows = unexcused
-    .map((r) => `<tr><td>${r.studentId}</td><td>${r.fullName}</td><td>неуваж.</td></tr>`)
+    .map((r) => `<tr><td>${r.fullName}</td><td>неуваж.</td></tr>`)
     .join("");
   const excusedRows = excused
-    .map((r) => `<tr><td>${r.studentId}</td><td>${r.fullName}</td><td>${r.reason || "уваж."}</td></tr>`)
+    .map((r) => `<tr><td>${r.fullName}</td><td>${r.reason || "уваж."}</td></tr>`)
     .join("");
   const rows = `${unexcusedRows}${excusedRows}`;
-  return `<div class="item"><b>Class #${block.classId}</b> <span class="muted">${block.date}</span> <span class="fill-flag ${filledClass}">${filledLabel}</span><div class="muted">Всего: ${block.totalStudents}, присутствуют: ${block.presentCount}</div><table class="attendance-table"><thead><tr><th>ID</th><th>Ученик</th><th>Причина</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="item"><b>Class #${block.classId}</b> <span class="muted">${block.date}</span> <span class="fill-flag ${filledClass}">${filledLabel}</span><div class="muted">Всего: ${block.totalStudents}, присутствуют: ${block.presentCount}</div><table class="attendance-table"><thead><tr><th>Фамилия</th><th>Причина</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 };
 
 const loadAttendance = async () => {
@@ -199,74 +180,59 @@ const loadAttendance = async () => {
   }
 };
 
+const addUnexcusedRow = (name = "") => {
+  const container = el("unexcusedList");
+  const row = document.createElement("div");
+  row.className = "item absence-row";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = "Фамилия";
+  input.className = "absence-name unexcused-name";
+  input.value = name;
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "ghost-btn remove-absence";
+  removeBtn.textContent = "Удалить";
+  removeBtn.addEventListener("click", () => row.remove());
+  row.append(input, removeBtn);
+  container.appendChild(row);
+};
+
+const addExcusedRow = (name = "", reason = "") => {
+  const container = el("excusedList");
+  const row = document.createElement("div");
+  row.className = "item absence-row";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = "Фамилия";
+  input.className = "absence-name excused-name";
+  input.value = name;
+  const select = document.createElement("select");
+  select.className = "absence-reason";
+  const options = ['<option value="">—</option>']
+    .concat(excusedReasons.map((r) => `<option value="${r}">${r}</option>`))
+    .join("");
+  select.innerHTML = options;
+  select.value = reason;
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "ghost-btn remove-absence";
+  removeBtn.textContent = "Удалить";
+  removeBtn.addEventListener("click", () => row.remove());
+  row.append(input, select, removeBtn);
+  container.appendChild(row);
+};
+
 const renderAttendanceEditor = (block) => {
-  const unexcusedMap = new Set((block.absentUnexcused || []).map((r) => r.studentId));
-  const excusedMap = new Map((block.absentExcused || []).map((r) => [r.studentId, r.reason || ""]));
-  const table = document.createElement("table");
-  table.className = "attendance-table";
-  table.innerHTML = `
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Ученик</th>
-        <th>Неуваж.</th>
-        <th>Уважительная причина</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${block.studentList
-        .map(
-          (r) => `
-        <tr>
-          <td>${r.studentId}</td>
-          <td>${r.fullName}</td>
-          <td>
-            <input type="checkbox" class="attendance-unexcused" data-student-id="${r.studentId}" ${unexcusedMap.has(r.studentId) ? "checked" : ""} />
-          </td>
-          <td>
-            <select class="attendance-excused" data-student-id="${r.studentId}">
-              <option value="">—</option>
-              ${excusedReasons
-                .map(
-                  (reason) =>
-                    `<option value="${reason}" ${excusedMap.get(r.studentId) === reason ? "selected" : ""}>${reason}</option>`
-                )
-                .join("")}
-            </select>
-          </td>
-        </tr>
-      `
-        )
-        .join("")}
-    </tbody>
-  `;
-  const box = el("attendanceEditTable");
-  box.innerHTML = "";
-  box.appendChild(table);
   el("attendanceEditInfo").textContent = `Class #${block.classId}, date ${block.date}`;
   el("attendanceSaveBtn").classList.remove("hidden");
-  el("attendanceBulkActions").classList.remove("hidden");
+  el("attendanceTotalStudents").value = block.totalStudents ?? 0;
+  el("attendancePresentCount").value = block.presentCount ?? 0;
 
-  document.querySelectorAll(".attendance-unexcused").forEach((box) => {
-    box.addEventListener("change", () => {
-      if (box.checked) {
-        const selector = document.querySelector(
-          `.attendance-excused[data-student-id="${box.dataset.studentId}"]`
-        );
-        if (selector) selector.value = "";
-      }
-    });
-  });
-  document.querySelectorAll(".attendance-excused").forEach((select) => {
-    select.addEventListener("change", () => {
-      if (select.value) {
-        const box = document.querySelector(
-          `.attendance-unexcused[data-student-id="${select.dataset.studentId}"]`
-        );
-        if (box) box.checked = false;
-      }
-    });
-  });
+  el("unexcusedList").innerHTML = "";
+  el("excusedList").innerHTML = "";
+  (block.absentUnexcused || []).forEach((item) => addUnexcusedRow(item.fullName || ""));
+  (block.absentExcused || []).forEach((item) => addExcusedRow(item.fullName || "", item.reason || ""));
 };
 
 const loadAttendanceForEdit = async () => {
@@ -281,16 +247,8 @@ const loadAttendanceForEdit = async () => {
   if (Array.isArray(data)) {
     throw new Error("Для редактирования укажите конкретный classId");
   }
-  const studentList = (data.absentUnexcused || [])
-    .concat(data.absentExcused || [])
-    .reduce((acc, _) => acc, []);
-  const students = await request(`/classes/${data.classId}/students`);
-  const block = {
-    ...data,
-    studentList: students.map((s) => ({ studentId: s.id, fullName: s.fullName })),
-  };
   state.attendanceEditClassId = data.classId;
-  renderAttendanceEditor(block);
+  renderAttendanceEditor(data);
 };
 
 const saveAttendanceEdit = async () => {
@@ -299,46 +257,31 @@ const saveAttendanceEdit = async () => {
   if (!dateValue || !classId) {
     throw new Error("Укажите дату и classId");
   }
-  const unexcused = new Set(
-    Array.from(document.querySelectorAll(".attendance-unexcused"))
-      .filter((node) => node.checked)
-      .map((node) => Number(node.dataset.studentId))
-  );
-  const excused = Array.from(document.querySelectorAll(".attendance-excused"))
-    .filter((node) => node.value)
-    .map((node) => ({ studentId: Number(node.dataset.studentId), reason: node.value }));
-  const excusedIds = new Set(excused.map((r) => r.studentId));
-  for (const id of unexcused) {
-    if (excusedIds.has(id)) {
-      throw new Error("Нельзя одновременно указать неуваж. и уважительную причину");
-    }
+  const totalStudents = Number(el("attendanceTotalStudents").value);
+  const presentCount = Number(el("attendancePresentCount").value);
+  if (Number.isNaN(totalStudents) || Number.isNaN(presentCount)) {
+    throw new Error("Укажите численность и присутствующих");
   }
+  const absentUnexcused = Array.from(document.querySelectorAll(".unexcused-name"))
+    .map((node) => node.value.trim())
+    .filter((value) => value);
+  const absentExcused = Array.from(document.querySelectorAll("#excusedList .absence-row"))
+    .map((row) => {
+      const name = row.querySelector(".excused-name")?.value.trim() || "";
+      const reason = row.querySelector(".absence-reason")?.value || "";
+      return name ? { fullName: name, reason } : null;
+    })
+    .filter((item) => item);
   await request(`/attendance?date=${dateValue}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       classId,
-      unexcusedStudentIds: Array.from(unexcused),
-      excused,
+      totalStudents,
+      presentCount,
+      absentUnexcused,
+      absentExcused,
     }),
-  });
-};
-
-const setAllUnexcused = () => {
-  document.querySelectorAll(".attendance-unexcused").forEach((node) => {
-    node.checked = true;
-  });
-  document.querySelectorAll(".attendance-excused").forEach((node) => {
-    node.value = "";
-  });
-};
-
-const clearAllAttendance = () => {
-  document.querySelectorAll(".attendance-unexcused").forEach((node) => {
-    node.checked = false;
-  });
-  document.querySelectorAll(".attendance-excused").forEach((node) => {
-    node.value = "";
   });
 };
 
@@ -570,43 +513,6 @@ const bindEvents = () => {
     }
   });
 
-  el("addStudentForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (!state.selectedClassId) return toast("Сначала выберите класс", true);
-    try {
-      await request(`/classes/${state.selectedClassId}/students`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName: el("studentFullName").value.trim() }),
-      });
-      e.target.reset();
-      await loadStudents();
-      toast("Ученик добавлен");
-    } catch (err) {
-      toast(err.message, true);
-    }
-  });
-
-  el("updateStudentForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {};
-      const fullName = el("updateStudentName").value.trim();
-      const isActive = el("updateStudentActive").value;
-      if (fullName) payload.fullName = fullName;
-      if (isActive) payload.isActive = isActive === "true";
-      await request(`/students/${el("updateStudentId").value}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      e.target.reset();
-      await loadStudents();
-      toast("Ученик обновлен");
-    } catch (err) {
-      toast(err.message, true);
-    }
-  });
 
   el("attendanceLoadForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -638,8 +544,8 @@ const bindEvents = () => {
     }
   });
 
-  el("setAllUnexcused").addEventListener("click", () => setAllUnexcused());
-  el("clearAllAttendance").addEventListener("click", () => clearAllAttendance());
+  el("addUnexcused").addEventListener("click", () => addUnexcusedRow());
+  el("addExcused").addEventListener("click", () => addExcusedRow());
 
   el("statsForm").addEventListener("submit", async (e) => {
     e.preventDefault();

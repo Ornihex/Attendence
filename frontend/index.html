@@ -73,33 +73,9 @@
           </div>
 
           <article class="card">
-            <h3>Ученики выбранного класса</h3>
+            <h3>Выбранный класс</h3>
             <p id="selectedClassInfo" class="muted">Класс не выбран</p>
-            <div class="grid two-cols">
-              <form id="addStudentForm" class="form-grid">
-                <label>ФИО ученика <input id="studentFullName" type="text" required /></label>
-                <button type="submit">Добавить</button>
-              </form>
-              <form id="updateStudentForm" class="form-grid">
-                <label
-                  >Ученик
-                  <select id="updateStudentId" required>
-                    <option value="">Выберите ученика</option>
-                  </select>
-                </label>
-                <label>Новое ФИО <input id="updateStudentName" type="text" /></label>
-                <label
-                  >Активен
-                  <select id="updateStudentActive">
-                    <option value="">Не менять</option>
-                    <option value="true">Да</option>
-                    <option value="false">Нет</option>
-                  </select>
-                </label>
-                <button type="submit">Обновить</button>
-              </form>
-            </div>
-            <div id="studentsList" class="list"></div>
+            <p class="muted">Список учеников не ведется — заполнение через численность и фамилии отсутствующих.</p>
           </article>
         </section>
 
@@ -134,14 +110,29 @@
                     <option value="">Выберите класс</option>
                   </select>
                 </label>
-                <button type="submit">Загрузить учеников</button>
+                <button type="submit">Загрузить данные</button>
               </form>
-              <div id="attendanceEditInfo" class="muted">Сначала загрузите учеников</div>
-              <div id="attendanceBulkActions" class="bulk-actions hidden">
-                <button type="button" id="setAllUnexcused" class="ghost-btn">Всем неуваж.</button>
-                <button type="button" id="clearAllAttendance" class="ghost-btn">Очистить отметки</button>
+              <div id="attendanceEditInfo" class="muted">Сначала загрузите данные</div>
+              <div class="grid two-cols">
+                <label>По списку <input id="attendanceTotalStudents" type="number" min="0" /></label>
+                <label>Присутствуют <input id="attendancePresentCount" type="number" min="0" /></label>
               </div>
-              <div id="attendanceEditTable"></div>
+              <div class="grid two-cols">
+                <div class="card-inner">
+                  <div class="row-form">
+                    <h4>Неуважительные отсутствующие</h4>
+                    <button type="button" id="addUnexcused" class="ghost-btn">Добавить</button>
+                  </div>
+                  <div id="unexcusedList" class="list"></div>
+                </div>
+                <div class="card-inner">
+                  <div class="row-form">
+                    <h4>Уважительные отсутствующие</h4>
+                    <button type="button" id="addExcused" class="ghost-btn">Добавить</button>
+                  </div>
+                  <div id="excusedList" class="list"></div>
+                </div>
+              </div>
               <button id="attendanceSaveBtn" class="hidden">Сохранить посещаемость</button>
             </article>
           </div>

@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import bcrypt
 import jwt
@@ -7,16 +7,14 @@ from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from db import AttendanceBase, AttendanceFillBase, AttendanceStatusEnum, ClassBase, RoleEnum, StudentBase, UserBase, engine
+from db import AttendanceBase, AttendanceFillBase, AttendanceStatusEnum, ClassBase, RoleEnum, UserBase, engine
 from models import (
     AttendanceRequest,
     CreateClassRequest,
-    CreateStudentRequest,
     CreateTeacherRequest,
     LoginRequest,
     UpdateCredentialsRequest,
     UpdateRoleRequest,
-    UpdateStudentRequest,
 )
 from utils.jwt import RANDOM_SECRET, create_jwt
 
@@ -72,34 +70,31 @@ def _resolve_class_for_user(payload: dict, requested_class_id: int | None) -> in
 
 
 def _attendance_for_class(s, current_date: date, class_id: int) -> dict:
-    students = s.query(StudentBase).filter(StudentBase.class_id == class_id).all()
     attendance_rows = (
         s.query(AttendanceBase)
         .filter(and_(AttendanceBase.class_id == class_id, AttendanceBase.date == current_date))
         .all()
     )
-    is_filled = (
+    fill_row = (
         s.query(AttendanceFillBase)
         .filter(and_(AttendanceFillBase.class_id == class_id, AttendanceFillBase.date == current_date))
         .first()
-        is not None
     )
-    total_students = len(students)
+    is_filled = fill_row is not None
+    total_students = fill_row.total_students if fill_row else 0
+    present_count = fill_row.present_count if fill_row else 0
     unexcused = []
     excused = []
     for row in attendance_rows:
         if row.status == AttendanceStatusEnum.unexcused:
-            unexcused.append({"studentId": row.student_id, "fullName": _student_name(students, row.student_id)})
+            unexcused.append({"fullName": row.absent_name})
         elif row.status == AttendanceStatusEnum.excused:
             excused.append(
                 {
-                    "studentId": row.student_id,
-                    "fullName": _student_name(students, row.student_id),
+                    "fullName": row.absent_name,
                     "reason": row.reason or "",
                 }
             )
-    absent_count = len(unexcused) + len(excused)
-    present_count = max(total_students - absent_count, 0)
     return {
         "date": current_date.isoformat(),
         "classId": class_id,
@@ -111,17 +106,9 @@ def _attendance_for_class(s, current_date: date, class_id: int) -> dict:
     }
 
 
-def _student_name(students: list[StudentBase], student_id: int) -> str:
-    for student in students:
-        if student.id == student_id:
-            return student.full_name
-    return ""
-
-
 def _weekly_stats_for_class(s, class_id: int, start_date: date) -> dict:
     end_date = start_date + timedelta(days=6)
-    total_students = s.query(StudentBase).filter(StudentBase.class_id == class_id).count()
-    filled_days = (
+    fill_rows = (
         s.query(AttendanceFillBase)
         .filter(
             and_(
@@ -130,21 +117,11 @@ def _weekly_stats_for_class(s, class_id: int, start_date: date) -> dict:
                 AttendanceFillBase.date <= end_date,
             )
         )
-        .count()
-    )
-    absent_rows = (
-        s.query(AttendanceBase)
-        .filter(
-            and_(
-                AttendanceBase.class_id == class_id,
-                AttendanceBase.date >= start_date,
-                AttendanceBase.date <= end_date,
-            )
-        )
         .all()
     )
-    absent_count = len(absent_rows)
-    present_count = max((total_students * filled_days) - absent_count, 0)
+    filled_days = len(fill_rows)
+    total_students = sum(row.total_students for row in fill_rows)
+    present_count = sum(row.present_count for row in fill_rows)
     return {
         "classId": class_id,
         "from": start_date.isoformat(),
@@ -306,52 +283,6 @@ def create_class(request: Request, payload: CreateClassRequest):
         return {"message": "Class created"}
 
 
-@router.get("/classes/{classId}/students")
-def get_class_students(classId: int, request: Request):
-    payload = _get_token_payload(request)
-    with session() as s:
-        class_row = s.query(ClassBase).filter(ClassBase.id == classId).first()
-        if not class_row:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
-        if payload["role"] == RoleEnum.teacher.value and class_row.teacher_id != int(payload["sub"]):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        students = s.query(StudentBase).filter(StudentBase.class_id == classId).all()
-        return [{"id": row.id, "fullName": row.full_name, "isActive": row.is_active} for row in students]
-
-
-@router.post("/classes/{classId}/students", status_code=status.HTTP_201_CREATED)
-def add_student(classId: int, request: Request, payload: CreateStudentRequest):
-    token_payload = _get_token_payload(request)
-    with session() as s:
-        class_row = s.query(ClassBase).filter(ClassBase.id == classId).first()
-        if not class_row:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
-        if token_payload["role"] == RoleEnum.teacher.value and class_row.teacher_id != int(token_payload["sub"]):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        student = StudentBase(class_id=classId, full_name=payload.full_name)
-        s.add(student)
-        s.commit()
-        return {"message": "Student created"}
-
-
-@router.patch("/students/{id}")
-def update_student(id: int, request: Request, payload: UpdateStudentRequest):
-    token_payload = _get_token_payload(request)
-    with session() as s:
-        student = s.query(StudentBase).filter(StudentBase.id == id).first()
-        if not student:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
-        class_row = s.query(ClassBase).filter(ClassBase.id == student.class_id).first()
-        if token_payload["role"] == RoleEnum.teacher.value and class_row.teacher_id != int(token_payload["sub"]):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        if payload.full_name is not None:
-            student.full_name = payload.full_name
-        if payload.is_active is not None:
-            student.is_active = payload.is_active
-        s.commit()
-        return {"message": "Updated"}
-
-
 @router.get("/attendance")
 def get_attendance(date: date, request: Request, classId: int | None = None):
     token_payload = _get_token_payload(request)
@@ -378,39 +309,46 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
         if token_payload["role"] == RoleEnum.teacher.value and class_row.teacher_id != int(token_payload["sub"]):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        valid_student_ids = {
-            student_id
-            for (student_id,) in s.query(StudentBase.id).filter(StudentBase.class_id == payload.class_id).all()
-        }
-        unexcused_ids = set(payload.unexcused_student_ids)
-        excused_ids = {item.student_id for item in payload.excused}
-        if unexcused_ids & excused_ids:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Duplicate studentId in absences")
-        if not unexcused_ids.issubset(valid_student_ids) or not excused_ids.issubset(valid_student_ids):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid studentId")
+        if payload.total_students < 0 or payload.present_count < 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid totals")
+        if payload.present_count > payload.total_students:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Present count exceeds total")
+        absent_unexcused = [name.strip() for name in payload.absent_unexcused if name.strip()]
+        absent_excused = [
+            {"fullName": item.full_name.strip(), "reason": item.reason.strip()}
+            for item in payload.absent_excused
+            if item.full_name.strip()
+        ]
+        absent_count = len(absent_unexcused) + len(absent_excused)
+        expected_absent = payload.total_students - payload.present_count
+        if absent_count != expected_absent:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Absent count must match totalStudents - presentCount",
+            )
 
         # Replace previous absences for date/class.
         s.query(AttendanceBase).filter(
             and_(AttendanceBase.date == date, AttendanceBase.class_id == payload.class_id)
         ).delete()
 
-        for student_id in unexcused_ids:
+        for name in absent_unexcused:
             s.add(
                 AttendanceBase(
                     date=date,
                     class_id=payload.class_id,
-                    student_id=student_id,
+                    absent_name=name,
                     status=AttendanceStatusEnum.unexcused,
                 )
             )
-        for item in payload.excused:
+        for item in absent_excused:
             s.add(
                 AttendanceBase(
                     date=date,
                     class_id=payload.class_id,
-                    student_id=item.student_id,
+                    absent_name=item["fullName"],
                     status=AttendanceStatusEnum.excused,
-                    reason=item.reason,
+                    reason=item["reason"],
                 )
             )
 
@@ -420,7 +358,18 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
             .first()
         )
         if not existing_fill:
-            s.add(AttendanceFillBase(date=date, class_id=payload.class_id))
+            s.add(
+                AttendanceFillBase(
+                    date=date,
+                    class_id=payload.class_id,
+                    total_students=payload.total_students,
+                    present_count=payload.present_count,
+                )
+            )
+        else:
+            existing_fill.total_students = payload.total_students
+            existing_fill.present_count = payload.present_count
+            existing_fill.filled_at = datetime.now()
         s.commit()
         return {"message": "Saved"}
 

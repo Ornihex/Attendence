@@ -120,41 +120,26 @@ def test_full_api_smoke(server_process):
 
     _request("GET", "/classes", 200, headers=teacher_headers)
 
-    _request(
-        "POST",
-        f"/classes/{class_id}/students",
-        201,
-        headers=teacher_headers,
-        json={"fullName": "Test Student"},
-    )
-
-    students_response = _request("GET", f"/classes/{class_id}/students", 200, headers=teacher_headers)
-    students = students_response.json()
-    assert students, "No students returned after creation"
-    student_id = students[0]["id"]
-
-    _request(
-        "PATCH",
-        f"/students/{student_id}",
-        200,
-        headers=teacher_headers,
-        json={"isActive": True, "fullName": "Test Student Updated"},
-    )
-
     today = date.today().isoformat()
     _request(
         "PUT",
         f"/attendance?date={today}",
         200,
         headers=teacher_headers,
-        json={"classId": class_id, "unexcusedStudentIds": [student_id], "excused": []},
+        json={
+            "classId": class_id,
+            "totalStudents": 25,
+            "presentCount": 23,
+            "absentUnexcused": ["Ivanov"],
+            "absentExcused": [{"fullName": "Petrov", "reason": "Болезнь"}],
+        },
     )
 
     attendance_single = _request("GET", f"/attendance?date={today}&classId={class_id}", 200, headers=teacher_headers).json()
     assert "isFilled" in attendance_single, "Attendance response must include isFilled"
     assert attendance_single["isFilled"] is True
-    assert attendance_single["totalStudents"] >= 1
-    assert attendance_single["presentCount"] == max(attendance_single["totalStudents"] - 1, 0)
+    assert attendance_single["totalStudents"] == 25
+    assert attendance_single["presentCount"] == 23
     admin_all_classes_attendance = _request("GET", f"/attendance?date={today}", 200, headers=admin_headers)
     assert isinstance(admin_all_classes_attendance.json(), list), "Admin attendance response without classId must be a list"
     assert any(item["classId"] == class_id for item in admin_all_classes_attendance.json()), "Created class not found in all-classes attendance response"

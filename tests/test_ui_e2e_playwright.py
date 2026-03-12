@@ -105,20 +105,6 @@ def seeded_teacher(server_process):
     teacher_token = login_teacher.json()["accessToken"]
     teacher_headers = {"Authorization": f"Bearer {teacher_token}"}
 
-    _api_request(
-        "POST",
-        f"/classes/{class_id}/students",
-        201,
-        headers=teacher_headers,
-        json={"fullName": "UI Student 1"},
-    )
-    _api_request(
-        "POST",
-        f"/classes/{class_id}/students",
-        201,
-        headers=teacher_headers,
-        json={"fullName": "UI Student 2"},
-    )
     return {
         "teacher_login": teacher_login,
         "teacher_password": teacher_password,
@@ -151,8 +137,14 @@ def test_ui_bulk_attendance_update(seeded_teacher):
         page.select_option("#attendanceEditClassId", str(class_id))
         page.click("#attendanceEditForm button[type='submit']")
 
-        page.wait_for_selector(".attendance-unexcused")
-        page.click("#setAllUnexcused")
+        page.wait_for_selector("#attendanceTotalStudents")
+        page.fill("#attendanceTotalStudents", "20")
+        page.fill("#attendancePresentCount", "18")
+        page.click("#addUnexcused")
+        page.fill("#unexcusedList .absence-name", "Иванов")
+        page.click("#addExcused")
+        page.fill("#excusedList .excused-name", "Петров")
+        page.select_option("#excusedList .absence-reason", "Болезнь")
         page.click("#attendanceSaveBtn")
         page.wait_for_function(
             "() => { const t = document.getElementById('toast'); return t && t.textContent.includes('сохранена'); }"

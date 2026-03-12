@@ -62,10 +62,9 @@ class AttendanceBase(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     class_id: Mapped[int] = mapped_column(Integer, ForeignKey("classes.id"), nullable=False)
-    student_id: Mapped[int] = mapped_column(Integer, ForeignKey("students.id"), nullable=False)
+    absent_name: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[AttendanceStatusEnum] = mapped_column(Enum(AttendanceStatusEnum), nullable=False)
     reason: Mapped[str | None] = mapped_column(String, nullable=True)
-    __table_args__ = (UniqueConstraint("date", "class_id", "student_id", name="uq_attendance_record"),)
 
 
 class AttendanceFillBase(Base):
@@ -74,6 +73,8 @@ class AttendanceFillBase(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     class_id: Mapped[int] = mapped_column(Integer, ForeignKey("classes.id"), nullable=False)
+    total_students: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    present_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     filled_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     __table_args__ = (UniqueConstraint("date", "class_id", name="uq_attendance_fill"),)
 
