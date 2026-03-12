@@ -7,7 +7,7 @@ from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from db import AttendanceBase, AttendanceStatusEnum, ClassBase, RoleEnum, StudentBase, UserBase, engine
+from db import AttendanceBase, AttendanceFillBase, AttendanceStatusEnum, ClassBase, RoleEnum, StudentBase, UserBase, engine
 from models import (
     AttendanceRequest,
     CreateClassRequest,
@@ -78,23 +78,61 @@ def _attendance_for_class(s, current_date: date, class_id: int) -> dict:
         .filter(and_(AttendanceBase.class_id == class_id, AttendanceBase.date == current_date))
         .all()
     )
-    is_filled = len(attendance_rows) > 0
-    status_by_student = {row.student_id: row.status.value for row in attendance_rows}
-    records = [
-        {
-            "studentId": student.id,
-            "fullName": student.full_name,
-            "status": status_by_student.get(student.id, AttendanceStatusEnum.unexcused.value),
-        }
-        for student in students
-    ]
-    return {"date": current_date.isoformat(), "classId": class_id, "isFilled": is_filled, "records": records}
+    is_filled = (
+        s.query(AttendanceFillBase)
+        .filter(and_(AttendanceFillBase.class_id == class_id, AttendanceFillBase.date == current_date))
+        .first()
+        is not None
+    )
+    total_students = len(students)
+    unexcused = []
+    excused = []
+    for row in attendance_rows:
+        if row.status == AttendanceStatusEnum.unexcused:
+            unexcused.append({"studentId": row.student_id, "fullName": _student_name(students, row.student_id)})
+        elif row.status == AttendanceStatusEnum.excused:
+            excused.append(
+                {
+                    "studentId": row.student_id,
+                    "fullName": _student_name(students, row.student_id),
+                    "reason": row.reason or "",
+                }
+            )
+    absent_count = len(unexcused) + len(excused)
+    present_count = max(total_students - absent_count, 0)
+    return {
+        "date": current_date.isoformat(),
+        "classId": class_id,
+        "isFilled": is_filled,
+        "totalStudents": total_students,
+        "presentCount": present_count,
+        "absentUnexcused": unexcused,
+        "absentExcused": excused,
+    }
+
+
+def _student_name(students: list[StudentBase], student_id: int) -> str:
+    for student in students:
+        if student.id == student_id:
+            return student.full_name
+    return ""
 
 
 def _weekly_stats_for_class(s, class_id: int, start_date: date) -> dict:
     end_date = start_date + timedelta(days=6)
-    students = s.query(StudentBase).filter(StudentBase.class_id == class_id).all()
-    attendance_rows = (
+    total_students = s.query(StudentBase).filter(StudentBase.class_id == class_id).count()
+    filled_days = (
+        s.query(AttendanceFillBase)
+        .filter(
+            and_(
+                AttendanceFillBase.class_id == class_id,
+                AttendanceFillBase.date >= start_date,
+                AttendanceFillBase.date <= end_date,
+            )
+        )
+        .count()
+    )
+    absent_rows = (
         s.query(AttendanceBase)
         .filter(
             and_(
@@ -105,28 +143,15 @@ def _weekly_stats_for_class(s, class_id: int, start_date: date) -> dict:
         )
         .all()
     )
-    by_student = {
-        student.id: {
-            "studentId": student.id,
-            "fullName": student.full_name,
-            "present": 0,
-            "excused": 0,
-            "unexcused": 0,
-        }
-        for student in students
-    }
-    summary = {"present": 0, "excused": 0, "unexcused": 0}
-    for row in attendance_rows:
-        key = row.status.value
-        summary[key] += 1
-        if row.student_id in by_student:
-            by_student[row.student_id][key] += 1
+    absent_count = len(absent_rows)
+    present_count = max((total_students * filled_days) - absent_count, 0)
     return {
         "classId": class_id,
         "from": start_date.isoformat(),
         "to": end_date.isoformat(),
-        "summary": summary,
-        "students": list(by_student.values()),
+        "totalStudents": total_students,
+        "presentCount": present_count,
+        "filledDays": filled_days,
     }
 
 
@@ -357,33 +382,45 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
             student_id
             for (student_id,) in s.query(StudentBase.id).filter(StudentBase.class_id == payload.class_id).all()
         }
-        for record in payload.records:
-            if record.student_id not in valid_student_ids:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid studentId")
-            if record.status not in {x.value for x in AttendanceStatusEnum}:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid attendance status")
-            row = (
-                s.query(AttendanceBase)
-                .filter(
-                    and_(
-                        AttendanceBase.date == date,
-                        AttendanceBase.class_id == payload.class_id,
-                        AttendanceBase.student_id == record.student_id,
-                    )
+        unexcused_ids = set(payload.unexcused_student_ids)
+        excused_ids = {item.student_id for item in payload.excused}
+        if unexcused_ids & excused_ids:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Duplicate studentId in absences")
+        if not unexcused_ids.issubset(valid_student_ids) or not excused_ids.issubset(valid_student_ids):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid studentId")
+
+        # Replace previous absences for date/class.
+        s.query(AttendanceBase).filter(
+            and_(AttendanceBase.date == date, AttendanceBase.class_id == payload.class_id)
+        ).delete()
+
+        for student_id in unexcused_ids:
+            s.add(
+                AttendanceBase(
+                    date=date,
+                    class_id=payload.class_id,
+                    student_id=student_id,
+                    status=AttendanceStatusEnum.unexcused,
                 )
-                .first()
             )
-            if row:
-                row.status = AttendanceStatusEnum(record.status)
-            else:
-                s.add(
-                    AttendanceBase(
-                        date=date,
-                        class_id=payload.class_id,
-                        student_id=record.student_id,
-                        status=AttendanceStatusEnum(record.status),
-                    )
+        for item in payload.excused:
+            s.add(
+                AttendanceBase(
+                    date=date,
+                    class_id=payload.class_id,
+                    student_id=item.student_id,
+                    status=AttendanceStatusEnum.excused,
+                    reason=item.reason,
                 )
+            )
+
+        existing_fill = (
+            s.query(AttendanceFillBase)
+            .filter(and_(AttendanceFillBase.date == date, AttendanceFillBase.class_id == payload.class_id))
+            .first()
+        )
+        if not existing_fill:
+            s.add(AttendanceFillBase(date=date, class_id=payload.class_id))
         s.commit()
         return {"message": "Saved"}
 

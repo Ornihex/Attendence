@@ -38,12 +38,17 @@ class UpdateStudentRequest(BaseModel):
 
 class AttendanceRecordRequest(BaseModel):
     student_id: int = Field(alias="studentId")
-    status: str
+
+
+class ExcusedAbsenceRequest(BaseModel):
+    student_id: int = Field(alias="studentId")
+    reason: str
 
 
 class AttendanceRequest(BaseModel):
     class_id: int = Field(alias="classId")
-    records: list[AttendanceRecordRequest]
+    unexcused_student_ids: list[int] = Field(default_factory=list, alias="unexcusedStudentIds")
+    excused: list[ExcusedAbsenceRequest] = Field(default_factory=list)
 
 
 class WeeklyStatisticsQuery(BaseModel):

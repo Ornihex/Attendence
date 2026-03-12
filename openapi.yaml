@@ -141,8 +141,15 @@ components:
       properties:
         studentId:
           type: integer
-        status:
-          $ref: '#/components/schemas/AttendanceStatus'
+
+    ExcusedAbsence:
+      type: object
+      required: [studentId, reason]
+      properties:
+        studentId:
+          type: integer
+        reason:
+          type: string
 
     AttendanceResponse:
       type: object
@@ -155,7 +162,11 @@ components:
         isFilled:
           type: boolean
           description: true, если по классу за эту дату есть хотя бы одна сохраненная запись посещаемости
-        records:
+        totalStudents:
+          type: integer
+        presentCount:
+          type: integer
+        absentUnexcused:
           type: array
           items:
             type: object
@@ -164,8 +175,17 @@ components:
                 type: integer
               fullName:
                 type: string
-              status:
-                $ref: '#/components/schemas/AttendanceStatus'
+        absentExcused:
+          type: array
+          items:
+            type: object
+            properties:
+              studentId:
+                type: integer
+              fullName:
+                type: string
+              reason:
+                type: string
 
     AttendanceByClassesResponse:
       type: array
@@ -174,14 +194,18 @@ components:
 
     AttendanceRequest:
       type: object
-      required: [classId, records]
+      required: [classId]
       properties:
         classId:
           type: integer
-        records:
+        unexcusedStudentIds:
           type: array
           items:
-            $ref: '#/components/schemas/AttendanceRecord'
+            type: integer
+        excused:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExcusedAbsence'
 
     WeeklyStatisticsResponse:
       type: object
@@ -194,30 +218,12 @@ components:
         to:
           type: string
           format: date
-        summary:
-          type: object
-          properties:
-            present:
-              type: integer
-            excused:
-              type: integer
-            unexcused:
-              type: integer
-        students:
-          type: array
-          items:
-            type: object
-            properties:
-              studentId:
-                type: integer
-              fullName:
-                type: string
-              present:
-                type: integer
-              excused:
-                type: integer
-              unexcused:
-                type: integer
+        totalStudents:
+          type: integer
+        presentCount:
+          type: integer
+        filledDays:
+          type: integer
 
     WeeklyStatisticsByClassesResponse:
       type: array

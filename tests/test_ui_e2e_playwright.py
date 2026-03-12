@@ -151,8 +151,8 @@ def test_ui_bulk_attendance_update(seeded_teacher):
         page.select_option("#attendanceEditClassId", str(class_id))
         page.click("#attendanceEditForm button[type='submit']")
 
-        page.wait_for_selector(".attendance-status-select")
-        page.click("#setAllPresent")
+        page.wait_for_selector(".attendance-unexcused")
+        page.click("#setAllUnexcused")
         page.click("#attendanceSaveBtn")
         page.wait_for_function(
             "() => { const t = document.getElementById('toast'); return t && t.textContent.includes('сохранена'); }"
@@ -166,5 +166,5 @@ def test_ui_bulk_attendance_update(seeded_teacher):
         200,
         headers=seeded_teacher["teacher_headers"],
     ).json()
-    assert verify["records"], "Attendance records are empty after UI save"
-    assert all(item["status"] == "present" for item in verify["records"])
+    assert verify["isFilled"] is True
+    assert verify["absentUnexcused"], "No unexcused absences saved after UI action"

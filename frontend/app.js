@@ -8,6 +8,12 @@ const state = {
 };
 
 const el = (id) => document.getElementById(id);
+const excusedReasons = [
+  "Болезнь",
+  "Семейные обстоятельства",
+  "Официальное мероприятие",
+  "Другое",
+];
 
 const toast = (message, isError = false) => {
   const node = el("toast");
@@ -164,13 +170,16 @@ const loadStudents = async () => {
 const renderAttendanceTable = (block) => {
   const filledLabel = block.isFilled ? "Заполнено" : "Не заполнено";
   const filledClass = block.isFilled ? "" : "warn";
-  const rows = block.records
-    .map(
-      (r) =>
-        `<tr><td>${r.studentId}</td><td>${r.fullName}</td><td>${r.status}</td></tr>`
-    )
+  const unexcused = block.absentUnexcused || [];
+  const excused = block.absentExcused || [];
+  const unexcusedRows = unexcused
+    .map((r) => `<tr><td>${r.studentId}</td><td>${r.fullName}</td><td>неуваж.</td></tr>`)
     .join("");
-  return `<div class="item"><b>Class #${block.classId}</b> <span class="muted">${block.date}</span> <span class="fill-flag ${filledClass}">${filledLabel}</span><table class="attendance-table"><thead><tr><th>ID</th><th>Ученик</th><th>Статус</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const excusedRows = excused
+    .map((r) => `<tr><td>${r.studentId}</td><td>${r.fullName}</td><td>${r.reason || "уваж."}</td></tr>`)
+    .join("");
+  const rows = `${unexcusedRows}${excusedRows}`;
+  return `<div class="item"><b>Class #${block.classId}</b> <span class="muted">${block.date}</span> <span class="fill-flag ${filledClass}">${filledLabel}</span><div class="muted">Всего: ${block.totalStudents}, присутствуют: ${block.presentCount}</div><table class="attendance-table"><thead><tr><th>ID</th><th>Ученик</th><th>Причина</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 };
 
 const loadAttendance = async () => {
@@ -191,6 +200,8 @@ const loadAttendance = async () => {
 };
 
 const renderAttendanceEditor = (block) => {
+  const unexcusedMap = new Set((block.absentUnexcused || []).map((r) => r.studentId));
+  const excusedMap = new Map((block.absentExcused || []).map((r) => [r.studentId, r.reason || ""]));
   const table = document.createElement("table");
   table.className = "attendance-table";
   table.innerHTML = `
@@ -198,21 +209,29 @@ const renderAttendanceEditor = (block) => {
       <tr>
         <th>ID</th>
         <th>Ученик</th>
-        <th>Статус</th>
+        <th>Неуваж.</th>
+        <th>Уважительная причина</th>
       </tr>
     </thead>
     <tbody>
-      ${block.records
+      ${block.studentList
         .map(
           (r) => `
         <tr>
           <td>${r.studentId}</td>
           <td>${r.fullName}</td>
           <td>
-            <select class="attendance-status-select" data-student-id="${r.studentId}">
-              <option value="present" ${r.status === "present" ? "selected" : ""}>present</option>
-              <option value="excused" ${r.status === "excused" ? "selected" : ""}>excused</option>
-              <option value="unexcused" ${r.status === "unexcused" ? "selected" : ""}>unexcused</option>
+            <input type="checkbox" class="attendance-unexcused" data-student-id="${r.studentId}" ${unexcusedMap.has(r.studentId) ? "checked" : ""} />
+          </td>
+          <td>
+            <select class="attendance-excused" data-student-id="${r.studentId}">
+              <option value="">—</option>
+              ${excusedReasons
+                .map(
+                  (reason) =>
+                    `<option value="${reason}" ${excusedMap.get(r.studentId) === reason ? "selected" : ""}>${reason}</option>`
+                )
+                .join("")}
             </select>
           </td>
         </tr>
@@ -227,6 +246,27 @@ const renderAttendanceEditor = (block) => {
   el("attendanceEditInfo").textContent = `Class #${block.classId}, date ${block.date}`;
   el("attendanceSaveBtn").classList.remove("hidden");
   el("attendanceBulkActions").classList.remove("hidden");
+
+  document.querySelectorAll(".attendance-unexcused").forEach((box) => {
+    box.addEventListener("change", () => {
+      if (box.checked) {
+        const selector = document.querySelector(
+          `.attendance-excused[data-student-id="${box.dataset.studentId}"]`
+        );
+        if (selector) selector.value = "";
+      }
+    });
+  });
+  document.querySelectorAll(".attendance-excused").forEach((select) => {
+    select.addEventListener("change", () => {
+      if (select.value) {
+        const box = document.querySelector(
+          `.attendance-unexcused[data-student-id="${select.dataset.studentId}"]`
+        );
+        if (box) box.checked = false;
+      }
+    });
+  });
 };
 
 const loadAttendanceForEdit = async () => {
@@ -241,8 +281,16 @@ const loadAttendanceForEdit = async () => {
   if (Array.isArray(data)) {
     throw new Error("Для редактирования укажите конкретный classId");
   }
+  const studentList = (data.absentUnexcused || [])
+    .concat(data.absentExcused || [])
+    .reduce((acc, _) => acc, []);
+  const students = await request(`/classes/${data.classId}/students`);
+  const block = {
+    ...data,
+    studentList: students.map((s) => ({ studentId: s.id, fullName: s.fullName })),
+  };
   state.attendanceEditClassId = data.classId;
-  renderAttendanceEditor(data);
+  renderAttendanceEditor(block);
 };
 
 const saveAttendanceEdit = async () => {
@@ -251,34 +299,51 @@ const saveAttendanceEdit = async () => {
   if (!dateValue || !classId) {
     throw new Error("Укажите дату и classId");
   }
-  const records = Array.from(document.querySelectorAll(".attendance-status-select")).map((node) => ({
-    studentId: Number(node.dataset.studentId),
-    status: node.value,
-  }));
-  if (!records.length) {
-    throw new Error("Сначала загрузите учеников для редактирования");
+  const unexcused = new Set(
+    Array.from(document.querySelectorAll(".attendance-unexcused"))
+      .filter((node) => node.checked)
+      .map((node) => Number(node.dataset.studentId))
+  );
+  const excused = Array.from(document.querySelectorAll(".attendance-excused"))
+    .filter((node) => node.value)
+    .map((node) => ({ studentId: Number(node.dataset.studentId), reason: node.value }));
+  const excusedIds = new Set(excused.map((r) => r.studentId));
+  for (const id of unexcused) {
+    if (excusedIds.has(id)) {
+      throw new Error("Нельзя одновременно указать неуваж. и уважительную причину");
+    }
   }
   await request(`/attendance?date=${dateValue}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ classId, records }),
+    body: JSON.stringify({
+      classId,
+      unexcusedStudentIds: Array.from(unexcused),
+      excused,
+    }),
   });
 };
 
-const setAllAttendanceStatuses = (status) => {
-  document.querySelectorAll(".attendance-status-select").forEach((node) => {
-    node.value = status;
+const setAllUnexcused = () => {
+  document.querySelectorAll(".attendance-unexcused").forEach((node) => {
+    node.checked = true;
+  });
+  document.querySelectorAll(".attendance-excused").forEach((node) => {
+    node.value = "";
+  });
+};
+
+const clearAllAttendance = () => {
+  document.querySelectorAll(".attendance-unexcused").forEach((node) => {
+    node.checked = false;
+  });
+  document.querySelectorAll(".attendance-excused").forEach((node) => {
+    node.value = "";
   });
 };
 
 const renderWeeklyStats = (block) => {
-  const rows = block.students
-    .map(
-      (s) =>
-        `<tr><td>${s.studentId}</td><td>${s.fullName}</td><td>${s.present}</td><td>${s.excused}</td><td>${s.unexcused}</td></tr>`
-    )
-    .join("");
-  return `<div class="item"><b>Class #${block.classId}</b> <span class="muted">${block.from} .. ${block.to}</span><br><span class="mono">summary: p=${block.summary.present}, e=${block.summary.excused}, u=${block.summary.unexcused}</span><table class="stats-table"><thead><tr><th>ID</th><th>Ученик</th><th>Present</th><th>Excused</th><th>Unexcused</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="item"><b>Class #${block.classId}</b> <span class="muted">${block.from} .. ${block.to}</span><div class="muted">Всего: ${block.totalStudents}, присутствуют: ${block.presentCount}, заполнено дней: ${block.filledDays}</div></div>`;
 };
 
 const loadStats = async () => {
@@ -573,9 +638,8 @@ const bindEvents = () => {
     }
   });
 
-  el("setAllPresent").addEventListener("click", () => setAllAttendanceStatuses("present"));
-  el("setAllExcused").addEventListener("click", () => setAllAttendanceStatuses("excused"));
-  el("setAllUnexcused").addEventListener("click", () => setAllAttendanceStatuses("unexcused"));
+  el("setAllUnexcused").addEventListener("click", () => setAllUnexcused());
+  el("clearAllAttendance").addEventListener("click", () => clearAllAttendance());
 
   el("statsForm").addEventListener("submit", async (e) => {
     e.preventDefault();

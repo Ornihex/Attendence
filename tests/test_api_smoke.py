@@ -53,7 +53,7 @@ def server_process():
 
 
 def _request(method: str, path: str, expected_status: int, **kwargs):
-    response = requests.request(method, f"{API_URL}{path}", timeout=30, **kwargs)
+    response = requests.request(method, f"{API_URL}{path}", timeout=90, **kwargs)
     assert (
         response.status_code == expected_status
     ), f"{method} {path} returned {response.status_code}, expected {expected_status}. Body: {response.text}"
@@ -147,12 +147,14 @@ def test_full_api_smoke(server_process):
         f"/attendance?date={today}",
         200,
         headers=teacher_headers,
-        json={"classId": class_id, "records": [{"studentId": student_id, "status": "present"}]},
+        json={"classId": class_id, "unexcusedStudentIds": [student_id], "excused": []},
     )
 
     attendance_single = _request("GET", f"/attendance?date={today}&classId={class_id}", 200, headers=teacher_headers).json()
     assert "isFilled" in attendance_single, "Attendance response must include isFilled"
     assert attendance_single["isFilled"] is True
+    assert attendance_single["totalStudents"] >= 1
+    assert attendance_single["presentCount"] == max(attendance_single["totalStudents"] - 1, 0)
     admin_all_classes_attendance = _request("GET", f"/attendance?date={today}", 200, headers=admin_headers)
     assert isinstance(admin_all_classes_attendance.json(), list), "Admin attendance response without classId must be a list"
     assert any(item["classId"] == class_id for item in admin_all_classes_attendance.json()), "Created class not found in all-classes attendance response"

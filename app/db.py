@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
-from sqlalchemy import String, Integer, Boolean, Date, create_engine, ForeignKey, Enum, UniqueConstraint
+from sqlalchemy import String, Integer, Boolean, Date, DateTime, create_engine, ForeignKey, Enum, UniqueConstraint
 import enum
 import os
 import bcrypt
@@ -64,7 +64,18 @@ class AttendanceBase(Base):
     class_id: Mapped[int] = mapped_column(Integer, ForeignKey("classes.id"), nullable=False)
     student_id: Mapped[int] = mapped_column(Integer, ForeignKey("students.id"), nullable=False)
     status: Mapped[AttendanceStatusEnum] = mapped_column(Enum(AttendanceStatusEnum), nullable=False)
+    reason: Mapped[str | None] = mapped_column(String, nullable=True)
     __table_args__ = (UniqueConstraint("date", "class_id", "student_id", name="uq_attendance_record"),)
+
+
+class AttendanceFillBase(Base):
+    __tablename__ = "attendance_fill"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    class_id: Mapped[int] = mapped_column(Integer, ForeignKey("classes.id"), nullable=False)
+    filled_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    __table_args__ = (UniqueConstraint("date", "class_id", name="uq_attendance_fill"),)
 
 
 POSTGRES_HOST = os.getenv("DB_HOST", 'db.com')
