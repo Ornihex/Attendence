@@ -33,18 +33,11 @@ def upgrade() -> None:
     op.alter_column("attendance", "absent_name", nullable=False)
     op.drop_constraint("uq_attendance_record", "attendance", type_="unique")
     op.drop_column("attendance", "student_id")
+    op.create_index("ix_attendance_class_date", "attendance", ["class_id", "date"], unique=False)
+    op.create_index("ix_attendance_fill_class_date", "attendance_fill", ["class_id", "date"], unique=False)
 
 
 def downgrade() -> None:
-    op.add_column("attendance", sa.Column("student_id", sa.Integer(), nullable=True))
-    op.create_foreign_key(
-        "attendance_student_id_fkey",
-        "attendance",
-        "students",
-        ["student_id"],
-        ["id"],
+    raise RuntimeError(
+        "Irreversible migration: attendance.student_id cannot be restored from absent_name without data loss."
     )
-    op.create_unique_constraint("uq_attendance_record", "attendance", ["date", "class_id", "student_id"])
-    op.drop_column("attendance", "absent_name")
-    op.drop_column("attendance_fill", "present_count")
-    op.drop_column("attendance_fill", "total_students")

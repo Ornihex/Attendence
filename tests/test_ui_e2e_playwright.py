@@ -25,11 +25,19 @@ def _wait_for_server(timeout_seconds: int = 25) -> None:
 
 
 def _api_request(method: str, path: str, expected_status: int, **kwargs):
-    response = requests.request(method, f"{API_URL}{path}", timeout=10, **kwargs)
-    assert (
-        response.status_code == expected_status
-    ), f"{method} {path} returned {response.status_code}, expected {expected_status}. Body: {response.text}"
-    return response
+    deadline = time.time() + 25
+    last_error = None
+    while time.time() < deadline:
+        try:
+            response = requests.request(method, f"{API_URL}{path}", timeout=20, **kwargs)
+            assert (
+                response.status_code == expected_status
+            ), f"{method} {path} returned {response.status_code}, expected {expected_status}. Body: {response.text}"
+            return response
+        except requests.RequestException as exc:
+            last_error = exc
+            time.sleep(0.4)
+    raise AssertionError(f"{method} {path} failed by timeout. Last error: {last_error}")
 
 
 @pytest.fixture(scope="session")
@@ -136,8 +144,12 @@ def test_ui_bulk_attendance_update(seeded_teacher):
         page.fill("#attendanceEditDate", today)
         page.select_option("#attendanceEditClassId", str(class_id))
         page.click("#attendanceEditForm button[type='submit']")
-
-        page.wait_for_selector("#attendanceTotalStudents")
+        page.wait_for_function(
+            "() => { const b = document.getElementById('attendanceSaveBtn'); return b && !b.classList.contains('hidden'); }"
+        )
+        page.wait_for_function(
+            f"() => document.getElementById('attendanceEditInfo')?.textContent.includes('Class #{class_id}')"
+        )
         page.fill("#attendanceTotalStudents", "20")
         page.fill("#attendancePresentCount", "18")
         page.click("#addUnexcused")
@@ -159,4 +171,58 @@ def test_ui_bulk_attendance_update(seeded_teacher):
         headers=seeded_teacher["teacher_headers"],
     ).json()
     assert verify["isFilled"] is True
-    assert verify["absentUnexcused"], "No unexcused absences saved after UI action"
+    absent_names = [item["fullName"] for item in verify["absentUnexcused"]] + [
+        item["fullName"] for item in verify["absentExcused"]
+    ]
+    assert len(absent_names) == 2
+    assert "Иванов" in absent_names
+    assert "Петров" in absent_names
+
+
+def test_ui_attendance_validation_errors(seeded_teacher):
+    today = date.today().isoformat()
+    teacher_login = seeded_teacher["teacher_login"]
+    teacher_password = seeded_teacher["teacher_password"]
+    class_id = seeded_teacher["class_id"]
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(BASE_URL, wait_until="domcontentloaded")
+
+        page.fill("#apiBase", API_URL)
+        page.fill("#login", teacher_login)
+        page.fill("#password", teacher_password)
+        page.click("#loginForm button[type='submit']")
+
+        page.wait_for_selector("#appView:not(.hidden)")
+        page.click("button[data-tab='attendanceTab']")
+        page.wait_for_selector("#attendanceTab.active")
+
+        page.fill("#attendanceEditDate", today)
+        page.select_option("#attendanceEditClassId", str(class_id))
+        page.click("#attendanceEditForm button[type='submit']")
+        page.wait_for_function(
+            "() => { const b = document.getElementById('attendanceSaveBtn'); return b && !b.classList.contains('hidden'); }"
+        )
+        page.wait_for_function(
+            f"() => document.getElementById('attendanceEditInfo')?.textContent.includes('Class #{class_id}')"
+        )
+
+        # totalStudents - presentCount == 1, but entered absent == 0
+        page.fill("#attendanceTotalStudents", "10")
+        page.fill("#attendancePresentCount", "9")
+        page.click("#attendanceSaveBtn")
+        page.wait_for_function(
+            "() => { const t = document.getElementById('toast'); return t && t.classList.contains('error') && !t.classList.contains('hidden'); }"
+        )
+
+        browser.close()
+
+    verify = _api_request(
+        "GET",
+        f"/attendance?date={today}&classId={class_id}",
+        200,
+        headers=seeded_teacher["teacher_headers"],
+    ).json()
+    assert verify["isFilled"] is False

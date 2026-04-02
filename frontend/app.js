@@ -163,6 +163,31 @@ const renderAttendanceTable = (block) => {
   return `<div class="item"><b>Class #${block.classId}</b> <span class="muted">${block.date}</span> <span class="fill-flag ${filledClass}">${filledLabel}</span><div class="muted">Всего: ${block.totalStudents}, присутствуют: ${block.presentCount}</div><table class="attendance-table"><thead><tr><th>Фамилия</th><th>Причина</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 };
 
+const collectAbsenceData = () => {
+  const absentUnexcused = Array.from(document.querySelectorAll(".unexcused-name"))
+    .map((node) => node.value.trim())
+    .filter((value) => value);
+  const absentExcused = Array.from(document.querySelectorAll("#excusedList .absence-row"))
+    .map((row) => {
+      const name = row.querySelector(".excused-name")?.value.trim() || "";
+      const reason = row.querySelector(".absence-reason")?.value || "";
+      return name ? { fullName: name, reason } : null;
+    })
+    .filter((item) => item);
+  return { absentUnexcused, absentExcused };
+};
+
+const updateAttendanceMismatchHint = () => {
+  const totalStudents = Number(el("attendanceTotalStudents").value || 0);
+  const presentCount = Number(el("attendancePresentCount").value || 0);
+  const expectedAbsent = Math.max(totalStudents - presentCount, 0);
+  const { absentUnexcused, absentExcused } = collectAbsenceData();
+  const enteredAbsent = absentUnexcused.length + absentExcused.length;
+  const hint = el("attendanceMismatchHint");
+  hint.textContent = `Ожидается отсутствующих: ${expectedAbsent}. Введено: ${enteredAbsent}.`;
+  hint.classList.toggle("hint-error", expectedAbsent !== enteredAbsent);
+};
+
 const loadAttendance = async () => {
   const dateValue = el("attendanceDate").value;
   const classIdValue = el("attendanceClassId").value;
@@ -193,9 +218,14 @@ const addUnexcusedRow = (name = "") => {
   removeBtn.type = "button";
   removeBtn.className = "ghost-btn remove-absence";
   removeBtn.textContent = "Удалить";
-  removeBtn.addEventListener("click", () => row.remove());
+  removeBtn.addEventListener("click", () => {
+    row.remove();
+    updateAttendanceMismatchHint();
+  });
+  input.addEventListener("input", () => updateAttendanceMismatchHint());
   row.append(input, removeBtn);
   container.appendChild(row);
+  updateAttendanceMismatchHint();
 };
 
 const addExcusedRow = (name = "", reason = "") => {
@@ -218,9 +248,15 @@ const addExcusedRow = (name = "", reason = "") => {
   removeBtn.type = "button";
   removeBtn.className = "ghost-btn remove-absence";
   removeBtn.textContent = "Удалить";
-  removeBtn.addEventListener("click", () => row.remove());
+  removeBtn.addEventListener("click", () => {
+    row.remove();
+    updateAttendanceMismatchHint();
+  });
+  input.addEventListener("input", () => updateAttendanceMismatchHint());
+  select.addEventListener("change", () => updateAttendanceMismatchHint());
   row.append(input, select, removeBtn);
   container.appendChild(row);
+  updateAttendanceMismatchHint();
 };
 
 const renderAttendanceEditor = (block) => {
@@ -233,6 +269,7 @@ const renderAttendanceEditor = (block) => {
   el("excusedList").innerHTML = "";
   (block.absentUnexcused || []).forEach((item) => addUnexcusedRow(item.fullName || ""));
   (block.absentExcused || []).forEach((item) => addExcusedRow(item.fullName || "", item.reason || ""));
+  updateAttendanceMismatchHint();
 };
 
 const loadAttendanceForEdit = async () => {
@@ -262,16 +299,23 @@ const saveAttendanceEdit = async () => {
   if (Number.isNaN(totalStudents) || Number.isNaN(presentCount)) {
     throw new Error("Укажите численность и присутствующих");
   }
-  const absentUnexcused = Array.from(document.querySelectorAll(".unexcused-name"))
-    .map((node) => node.value.trim())
-    .filter((value) => value);
-  const absentExcused = Array.from(document.querySelectorAll("#excusedList .absence-row"))
-    .map((row) => {
-      const name = row.querySelector(".excused-name")?.value.trim() || "";
-      const reason = row.querySelector(".absence-reason")?.value || "";
-      return name ? { fullName: name, reason } : null;
-    })
-    .filter((item) => item);
+  if (totalStudents < 0 || presentCount < 0 || presentCount > totalStudents) {
+    throw new Error("Проверьте значения по списку/присутствуют");
+  }
+  const { absentUnexcused, absentExcused } = collectAbsenceData();
+  if (absentExcused.some((item) => !item.reason)) {
+    throw new Error("Укажите причину для каждого уважительного отсутствия");
+  }
+  const normalizedUnexcused = absentUnexcused.map((name) => name.toLocaleLowerCase("ru-RU"));
+  const normalizedExcused = absentExcused.map((item) => item.fullName.toLocaleLowerCase("ru-RU"));
+  const allNames = normalizedUnexcused.concat(normalizedExcused);
+  if (new Set(allNames).size !== allNames.length) {
+    throw new Error("В списках отсутствующих есть дубликаты фамилий");
+  }
+  const expectedAbsent = totalStudents - presentCount;
+  if (absentUnexcused.length + absentExcused.length !== expectedAbsent) {
+    throw new Error("Количество отсутствующих должно совпадать с totalStudents - presentCount");
+  }
   await request(`/attendance?date=${dateValue}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -358,6 +402,8 @@ const bindEvents = () => {
   el("attendanceDate").valueAsDate = new Date();
   el("attendanceEditDate").valueAsDate = new Date();
   el("statsStartDate").valueAsDate = new Date();
+  el("attendanceTotalStudents").addEventListener("input", () => updateAttendanceMismatchHint());
+  el("attendancePresentCount").addEventListener("input", () => updateAttendanceMismatchHint());
 
   el("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();

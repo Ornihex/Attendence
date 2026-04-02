@@ -121,6 +121,16 @@ def test_full_api_smoke(server_process):
     _request("GET", "/classes", 200, headers=teacher_headers)
 
     today = date.today().isoformat()
+    unfilled_attendance = _request(
+        "GET",
+        f"/attendance?date={today}&classId={class_id}",
+        200,
+        headers=teacher_headers,
+    ).json()
+    assert unfilled_attendance["isFilled"] is False
+    assert unfilled_attendance["totalStudents"] == 0
+    assert unfilled_attendance["presentCount"] == 0
+
     _request(
         "PUT",
         f"/attendance?date={today}",
@@ -140,6 +150,47 @@ def test_full_api_smoke(server_process):
     assert attendance_single["isFilled"] is True
     assert attendance_single["totalStudents"] == 25
     assert attendance_single["presentCount"] == 23
+
+    _request(
+        "PUT",
+        f"/attendance?date={today}",
+        400,
+        headers=teacher_headers,
+        json={
+            "classId": class_id,
+            "totalStudents": 25,
+            "presentCount": 24,
+            "absentUnexcused": ["Sidorov", "Smirnov"],
+            "absentExcused": [],
+        },
+    )
+    _request(
+        "PUT",
+        f"/attendance?date={today}",
+        400,
+        headers=teacher_headers,
+        json={
+            "classId": class_id,
+            "totalStudents": 25,
+            "presentCount": 23,
+            "absentUnexcused": ["Ivanov"],
+            "absentExcused": [{"fullName": "Ivanov", "reason": "Болезнь"}],
+        },
+    )
+    _request(
+        "PUT",
+        f"/attendance?date={today}",
+        400,
+        headers=teacher_headers,
+        json={
+            "classId": class_id,
+            "totalStudents": 25,
+            "presentCount": 24,
+            "absentUnexcused": [],
+            "absentExcused": [{"fullName": "Petrov", "reason": ""}],
+        },
+    )
+
     admin_all_classes_attendance = _request("GET", f"/attendance?date={today}", 200, headers=admin_headers)
     assert isinstance(admin_all_classes_attendance.json(), list), "Admin attendance response without classId must be a list"
     assert any(item["classId"] == class_id for item in admin_all_classes_attendance.json()), "Created class not found in all-classes attendance response"

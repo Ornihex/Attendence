@@ -22,6 +22,10 @@ router = APIRouter()
 session = sessionmaker(engine)
 
 
+def _normalize_absent_name(value: str) -> str:
+    return " ".join(value.strip().split())
+
+
 def _role_value(role: RoleEnum | str) -> str:
     return role.value if isinstance(role, RoleEnum) else str(role)
 
@@ -313,12 +317,28 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid totals")
         if payload.present_count > payload.total_students:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Present count exceeds total")
-        absent_unexcused = [name.strip() for name in payload.absent_unexcused if name.strip()]
-        absent_excused = [
-            {"fullName": item.full_name.strip(), "reason": item.reason.strip()}
-            for item in payload.absent_excused
-            if item.full_name.strip()
-        ]
+        absent_unexcused = []
+        for name in payload.absent_unexcused:
+            normalized_name = _normalize_absent_name(name)
+            if normalized_name:
+                absent_unexcused.append(normalized_name)
+
+        absent_excused = []
+        for item in payload.absent_excused:
+            normalized_name = _normalize_absent_name(item.full_name)
+            if not normalized_name:
+                continue
+            absent_excused.append({"fullName": normalized_name, "reason": item.reason.strip()})
+        if any(not item["reason"] for item in absent_excused):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reason is required for excused absence")
+
+        normalized_unexcused = {name.casefold() for name in absent_unexcused}
+        normalized_excused = {item["fullName"].casefold() for item in absent_excused}
+        if len(normalized_unexcused) != len(absent_unexcused) or len(normalized_excused) != len(absent_excused):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Duplicate absent fullName")
+        if normalized_unexcused & normalized_excused:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Duplicate absent fullName")
+
         absent_count = len(absent_unexcused) + len(absent_excused)
         expected_absent = payload.total_students - payload.present_count
         if absent_count != expected_absent:
