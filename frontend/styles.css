@@ -208,6 +208,11 @@ button {
   letter-spacing: 0.01em;
 }
 
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .ghost-btn {
   background: #fff;
   color: var(--ink);

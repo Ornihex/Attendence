@@ -143,12 +143,11 @@ def test_ui_bulk_attendance_update(seeded_teacher):
 
         page.fill("#attendanceEditDate", today)
         page.select_option("#attendanceEditClassId", str(class_id))
-        page.click("#attendanceEditForm button[type='submit']")
         page.wait_for_function(
-            "() => { const b = document.getElementById('attendanceSaveBtn'); return b && !b.classList.contains('hidden'); }"
+            "() => { const b = document.getElementById('attendanceSaveBtn'); return b && !b.disabled; }"
         )
         page.wait_for_function(
-            f"() => document.getElementById('attendanceEditInfo')?.textContent.includes('Class #{class_id}')"
+            f"() => document.getElementById('attendanceEditInfo')?.textContent.includes('класс #{class_id}')"
         )
         page.fill("#attendanceTotalStudents", "20")
         page.fill("#attendancePresentCount", "18")
@@ -201,12 +200,11 @@ def test_ui_attendance_validation_errors(seeded_teacher):
 
         page.fill("#attendanceEditDate", today)
         page.select_option("#attendanceEditClassId", str(class_id))
-        page.click("#attendanceEditForm button[type='submit']")
         page.wait_for_function(
-            "() => { const b = document.getElementById('attendanceSaveBtn'); return b && !b.classList.contains('hidden'); }"
+            "() => { const b = document.getElementById('attendanceSaveBtn'); return b && !b.disabled; }"
         )
         page.wait_for_function(
-            f"() => document.getElementById('attendanceEditInfo')?.textContent.includes('Class #{class_id}')"
+            f"() => document.getElementById('attendanceEditInfo')?.textContent.includes('класс #{class_id}')"
         )
 
         # totalStudents - presentCount == 1, but entered absent == 0
@@ -226,3 +224,29 @@ def test_ui_attendance_validation_errors(seeded_teacher):
         headers=seeded_teacher["teacher_headers"],
     ).json()
     assert verify["isFilled"] is False
+
+
+def test_ui_attendance_save_disabled_without_class(seeded_teacher):
+    teacher_login = seeded_teacher["teacher_login"]
+    teacher_password = seeded_teacher["teacher_password"]
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(BASE_URL, wait_until="domcontentloaded")
+
+        page.fill("#apiBase", API_URL)
+        page.fill("#login", teacher_login)
+        page.fill("#password", teacher_password)
+        page.click("#loginForm button[type='submit']")
+
+        page.wait_for_selector("#appView:not(.hidden)")
+        page.click("button[data-tab='attendanceTab']")
+        page.wait_for_selector("#attendanceTab.active")
+
+        page.wait_for_function(
+            "() => document.getElementById('attendanceEditInfo')?.textContent.includes('Выберите класс и дату')"
+        )
+        assert page.locator("#attendanceSaveBtn").is_disabled()
+
+        browser.close()

@@ -47,15 +47,14 @@
           <div class="grid two-cols">
             <article class="card">
               <h3>Выбор класса</h3>
-              <form class="row-form">
+              <div class="row-form">
                 <label
                   >Класс
                   <select id="dashboardClassSelect">
                     <option value="">Выберите класс</option>
                   </select>
                 </label>
-                <button type="button" id="refreshClasses">Обновить</button>
-              </form>
+              </div>
             </article>
             <article id="createClassCard" class="card admin-only">
               <h3>Создать класс</h3>
@@ -71,12 +70,6 @@
               </form>
             </article>
           </div>
-
-          <article class="card">
-            <h3>Выбранный класс</h3>
-            <p id="selectedClassInfo" class="muted">Класс не выбран</p>
-            <p class="muted">Список учеников не ведется — заполнение через численность и фамилии отсутствующих.</p>
-          </article>
         </section>
 
         <section id="attendanceTab" class="tab-content">
@@ -102,7 +95,7 @@
 
             <article class="card">
               <h3>Заполнить / обновить посещаемость</h3>
-              <form id="attendanceEditForm" class="row-form">
+              <div id="attendanceEditForm" class="row-form">
                 <label>Дата <input id="attendanceEditDate" type="date" required /></label>
                 <label
                   >Класс
@@ -110,9 +103,8 @@
                     <option value="">Выберите класс</option>
                   </select>
                 </label>
-                <button type="submit">Загрузить данные</button>
-              </form>
-              <div id="attendanceEditInfo" class="muted">Сначала загрузите данные</div>
+              </div>
+              <div id="attendanceEditInfo" class="muted">Выберите класс и дату</div>
               <div class="grid two-cols">
                 <label>По списку <input id="attendanceTotalStudents" type="number" min="0" /></label>
                 <label>Присутствуют <input id="attendancePresentCount" type="number" min="0" /></label>
@@ -134,7 +126,7 @@
                   <div id="excusedList" class="list"></div>
                 </div>
               </div>
-              <button id="attendanceSaveBtn" class="hidden">Сохранить посещаемость</button>
+              <button id="attendanceSaveBtn" disabled>Сохранить посещаемость</button>
             </article>
           </div>
         </section>

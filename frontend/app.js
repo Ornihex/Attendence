@@ -5,6 +5,7 @@ const state = {
   userId: null,
   selectedClassId: null,
   attendanceEditClassId: null,
+  attendanceLoadRequestId: 0,
 };
 
 const el = (id) => document.getElementById(id);
@@ -71,7 +72,7 @@ const loadUsers = async () => {
     "usersList",
     users,
     (u) =>
-      `<b>#${u.id}</b> ${u.login} <span class="mono">(${u.role})</span><br><span class="muted">classId: ${
+      `<b>#${u.id}</b> ${u.login} <span class="mono">(${u.role})</span><br><span class="muted">класс: ${
         u.classId ?? "-"
       }, promotedBy: ${u.promotedBy ?? "-"}</span>`
   );
@@ -142,10 +143,12 @@ const loadClasses = async () => {
 const applySelectedClass = async (classIdValue) => {
   if (!classIdValue) return;
   state.selectedClassId = Number(classIdValue);
-  el("selectedClassInfo").textContent = `Выбран classId: ${state.selectedClassId}`;
   el("attendanceEditClassId").value = String(state.selectedClassId);
   el("attendanceClassId").value = String(state.selectedClassId);
   el("statsClassId").value = String(state.selectedClassId);
+  if (el("attendanceTab").classList.contains("active")) {
+    await loadAttendanceForEdit();
+  }
 };
 
 const renderAttendanceTable = (block) => {
@@ -160,7 +163,7 @@ const renderAttendanceTable = (block) => {
     .map((r) => `<tr><td>${r.fullName}</td><td>${r.reason || "уваж."}</td></tr>`)
     .join("");
   const rows = `${unexcusedRows}${excusedRows}`;
-  return `<div class="item"><b>Class #${block.classId}</b> <span class="muted">${block.date}</span> <span class="fill-flag ${filledClass}">${filledLabel}</span><div class="muted">Всего: ${block.totalStudents}, присутствуют: ${block.presentCount}</div><table class="attendance-table"><thead><tr><th>Фамилия</th><th>Причина</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="item"><b>Класс #${block.classId}</b> <span class="muted">${block.date}</span> <span class="fill-flag ${filledClass}">${filledLabel}</span><div class="muted">Всего: ${block.totalStudents}, присутствуют: ${block.presentCount}</div><table class="attendance-table"><thead><tr><th>Фамилия</th><th>Причина</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 };
 
 const collectAbsenceData = () => {
@@ -186,6 +189,27 @@ const updateAttendanceMismatchHint = () => {
   const hint = el("attendanceMismatchHint");
   hint.textContent = `Ожидается отсутствующих: ${expectedAbsent}. Введено: ${enteredAbsent}.`;
   hint.classList.toggle("hint-error", expectedAbsent !== enteredAbsent);
+};
+
+const setAttendanceEditorStatus = (message, isError = false) => {
+  const info = el("attendanceEditInfo");
+  info.textContent = message;
+  info.classList.toggle("hint-error", isError);
+};
+
+const setAttendanceSaveEnabled = (enabled) => {
+  el("attendanceSaveBtn").disabled = !enabled;
+};
+
+const resetAttendanceEditor = (statusMessage = "Выберите класс и дату") => {
+  state.attendanceEditClassId = null;
+  el("attendanceTotalStudents").value = 0;
+  el("attendancePresentCount").value = 0;
+  el("unexcusedList").innerHTML = "";
+  el("excusedList").innerHTML = "";
+  setAttendanceEditorStatus(statusMessage);
+  setAttendanceSaveEnabled(false);
+  updateAttendanceMismatchHint();
 };
 
 const loadAttendance = async () => {
@@ -260,8 +284,8 @@ const addExcusedRow = (name = "", reason = "") => {
 };
 
 const renderAttendanceEditor = (block) => {
-  el("attendanceEditInfo").textContent = `Class #${block.classId}, date ${block.date}`;
-  el("attendanceSaveBtn").classList.remove("hidden");
+  setAttendanceEditorStatus(`Данные загружены: класс #${block.classId}, дата ${block.date}`);
+  setAttendanceSaveEnabled(true);
   el("attendanceTotalStudents").value = block.totalStudents ?? 0;
   el("attendancePresentCount").value = block.presentCount ?? 0;
 
@@ -273,26 +297,40 @@ const renderAttendanceEditor = (block) => {
 };
 
 const loadAttendanceForEdit = async () => {
+  const requestId = ++state.attendanceLoadRequestId;
   const dateValue = el("attendanceEditDate").value;
   let classIdValue = el("attendanceEditClassId").value;
   if (!classIdValue && state.selectedClassId) {
     classIdValue = String(state.selectedClassId);
     el("attendanceEditClassId").value = classIdValue;
   }
-  const query = classIdValue ? `?date=${dateValue}&classId=${classIdValue}` : `?date=${dateValue}`;
-  const data = await request(`/attendance${query}`);
-  if (Array.isArray(data)) {
-    throw new Error("Для редактирования укажите конкретный classId");
+  if (!classIdValue || !dateValue) {
+    resetAttendanceEditor("Выберите класс и дату");
+    return;
   }
-  state.attendanceEditClassId = data.classId;
-  renderAttendanceEditor(data);
+  setAttendanceEditorStatus("Загрузка...");
+  setAttendanceSaveEnabled(false);
+  const query = `?date=${dateValue}&classId=${classIdValue}`;
+  try {
+    const data = await request(`/attendance${query}`);
+    if (requestId !== state.attendanceLoadRequestId) return;
+    if (Array.isArray(data)) {
+      throw new Error("Для редактирования укажите конкретный класс");
+    }
+    state.attendanceEditClassId = data.classId;
+    renderAttendanceEditor(data);
+  } catch (err) {
+    if (requestId !== state.attendanceLoadRequestId) return;
+    resetAttendanceEditor("Не удалось загрузить данные");
+    setAttendanceEditorStatus(err.message || "Не удалось загрузить данные", true);
+  }
 };
 
 const saveAttendanceEdit = async () => {
   const dateValue = el("attendanceEditDate").value;
   const classId = Number(state.attendanceEditClassId || el("attendanceEditClassId").value);
   if (!dateValue || !classId) {
-    throw new Error("Укажите дату и classId");
+    throw new Error("Укажите дату и класс");
   }
   const totalStudents = Number(el("attendanceTotalStudents").value);
   const presentCount = Number(el("attendancePresentCount").value);
@@ -330,7 +368,7 @@ const saveAttendanceEdit = async () => {
 };
 
 const renderWeeklyStats = (block) => {
-  return `<div class="item"><b>Class #${block.classId}</b> <span class="muted">${block.from} .. ${block.to}</span><div class="muted">Всего: ${block.totalStudents}, присутствуют: ${block.presentCount}, заполнено дней: ${block.filledDays}</div></div>`;
+  return `<div class="item"><b>Класс #${block.classId}</b> <span class="muted">${block.from} .. ${block.to}</span><div class="muted">Всего: ${block.totalStudents}, присутствуют: ${block.presentCount}, заполнено дней: ${block.filledDays}</div></div>`;
 };
 
 const loadStats = async () => {
@@ -404,6 +442,7 @@ const bindEvents = () => {
   el("statsStartDate").valueAsDate = new Date();
   el("attendanceTotalStudents").addEventListener("input", () => updateAttendanceMismatchHint());
   el("attendancePresentCount").addEventListener("input", () => updateAttendanceMismatchHint());
+  resetAttendanceEditor();
 
   el("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -434,16 +473,12 @@ const bindEvents = () => {
   });
 
   document.querySelectorAll(".tab").forEach((t) => {
-    t.addEventListener("click", () => activateTab(t.dataset.tab));
-  });
-
-  el("refreshClasses").addEventListener("click", async () => {
-    try {
-      await loadClasses();
-      toast("Классы обновлены");
-    } catch (err) {
-      toast(err.message, true);
-    }
+    t.addEventListener("click", async () => {
+      activateTab(t.dataset.tab);
+      if (t.dataset.tab === "attendanceTab") {
+        await loadAttendanceForEdit();
+      }
+    });
   });
 
   el("dashboardClassSelect").addEventListener("change", async (e) => {
@@ -570,14 +605,11 @@ const bindEvents = () => {
     }
   });
 
-  el("attendanceEditForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      await loadAttendanceForEdit();
-      toast("Список для редактирования загружен");
-    } catch (err) {
-      toast(err.message, true);
-    }
+  el("attendanceEditDate").addEventListener("change", async () => {
+    await loadAttendanceForEdit();
+  });
+  el("attendanceEditClassId").addEventListener("change", async () => {
+    await loadAttendanceForEdit();
   });
 
   el("attendanceSaveBtn").addEventListener("click", async () => {
