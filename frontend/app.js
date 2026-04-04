@@ -181,6 +181,7 @@ const collectAbsenceData = () => {
 };
 
 const updateAttendanceMismatchHint = () => {
+  if (!el("attendanceMismatchHint") || !el("attendanceTotalStudents") || !el("attendancePresentCount")) return;
   const totalStudents = Number(el("attendanceTotalStudents").value || 0);
   const presentCount = Number(el("attendancePresentCount").value || 0);
   const expectedAbsent = Math.max(totalStudents - presentCount, 0);
@@ -193,20 +194,23 @@ const updateAttendanceMismatchHint = () => {
 
 const setAttendanceEditorStatus = (message, isError = false) => {
   const info = el("attendanceEditInfo");
+  if (!info) return;
   info.textContent = message;
   info.classList.toggle("hint-error", isError);
 };
 
 const setAttendanceSaveEnabled = (enabled) => {
-  el("attendanceSaveBtn").disabled = !enabled;
+  const saveButton = el("attendanceSaveBtn");
+  if (!saveButton) return;
+  saveButton.disabled = !enabled;
 };
 
 const resetAttendanceEditor = (statusMessage = "Выберите класс и дату") => {
   state.attendanceEditClassId = null;
-  el("attendanceTotalStudents").value = 0;
-  el("attendancePresentCount").value = 0;
-  el("unexcusedList").innerHTML = "";
-  el("excusedList").innerHTML = "";
+  if (el("attendanceTotalStudents")) el("attendanceTotalStudents").value = 0;
+  if (el("attendancePresentCount")) el("attendancePresentCount").value = 0;
+  if (el("unexcusedList")) el("unexcusedList").innerHTML = "";
+  if (el("excusedList")) el("excusedList").innerHTML = "";
   setAttendanceEditorStatus(statusMessage);
   setAttendanceSaveEnabled(false);
   updateAttendanceMismatchHint();
@@ -440,11 +444,11 @@ const bindEvents = () => {
   el("attendanceDate").valueAsDate = new Date();
   el("attendanceEditDate").valueAsDate = new Date();
   el("statsStartDate").valueAsDate = new Date();
-  el("attendanceTotalStudents").addEventListener("input", () => updateAttendanceMismatchHint());
-  el("attendancePresentCount").addEventListener("input", () => updateAttendanceMismatchHint());
+  el("attendanceTotalStudents")?.addEventListener("input", () => updateAttendanceMismatchHint());
+  el("attendancePresentCount")?.addEventListener("input", () => updateAttendanceMismatchHint());
   resetAttendanceEditor();
 
-  el("loginForm").addEventListener("submit", async (e) => {
+  el("loginForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
       state.apiBase = el("apiBase").value.trim().replace(/\/$/, "");
@@ -467,7 +471,7 @@ const bindEvents = () => {
     }
   });
 
-  el("logoutBtn").addEventListener("click", () => {
+  el("logoutBtn")?.addEventListener("click", () => {
     clearSession();
     window.location.reload();
   });
@@ -481,7 +485,7 @@ const bindEvents = () => {
     });
   });
 
-  el("dashboardClassSelect").addEventListener("change", async (e) => {
+  el("dashboardClassSelect")?.addEventListener("change", async (e) => {
     try {
       await applySelectedClass(e.target.value);
     } catch (err) {
@@ -595,7 +599,7 @@ const bindEvents = () => {
   });
 
 
-  el("attendanceLoadForm").addEventListener("submit", async (e) => {
+  el("attendanceLoadForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
       await loadAttendance();
@@ -605,14 +609,14 @@ const bindEvents = () => {
     }
   });
 
-  el("attendanceEditDate").addEventListener("change", async () => {
+  el("attendanceEditDate")?.addEventListener("change", async () => {
     await loadAttendanceForEdit();
   });
-  el("attendanceEditClassId").addEventListener("change", async () => {
+  el("attendanceEditClassId")?.addEventListener("change", async () => {
     await loadAttendanceForEdit();
   });
 
-  el("attendanceSaveBtn").addEventListener("click", async () => {
+  el("attendanceSaveBtn")?.addEventListener("click", async () => {
     try {
       await saveAttendanceEdit();
       await loadAttendance();
@@ -622,10 +626,10 @@ const bindEvents = () => {
     }
   });
 
-  el("addUnexcused").addEventListener("click", () => addUnexcusedRow());
-  el("addExcused").addEventListener("click", () => addExcusedRow());
+  el("addUnexcused")?.addEventListener("click", () => addUnexcusedRow());
+  el("addExcused")?.addEventListener("click", () => addExcusedRow());
 
-  el("statsForm").addEventListener("submit", async (e) => {
+  el("statsForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
       await loadStats();
