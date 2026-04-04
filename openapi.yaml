@@ -104,6 +104,19 @@ components:
         teacherId:
           type: integer
 
+    UnfilledClassResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        teacherId:
+          type: integer
+        teacherLogin:
+          type: string
+          nullable: true
+
     CreateClassRequest:
       type: object
       required: [name, teacherId]
@@ -516,7 +529,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ClassResponse'
+                  $ref: '#/components/schemas/UnfilledClassResponse'
 
     put:
       tags: [Attendance]

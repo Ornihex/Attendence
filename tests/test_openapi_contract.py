@@ -70,6 +70,7 @@ def test_openapi_yaml_contains_new_attendance_contract():
     assert "ErrorResponse" in spec
     assert "required: [message]" in spec
     assert "/attendance/unfilled-classes:" in spec
+    assert "UnfilledClassResponse" in spec
 
 
 def test_runtime_error_shape_and_attendance_fields(server_process):

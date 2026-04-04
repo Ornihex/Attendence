@@ -436,8 +436,16 @@ def get_unfilled_classes(date: date, request: Request):
             class_id
             for (class_id,) in s.query(AttendanceFillBase.class_id).filter(AttendanceFillBase.date == date).all()
         }
+        teacher_ids = {row.teacher_id for row in class_rows}
+        teacher_rows = s.query(UserBase.id, UserBase.login).filter(UserBase.id.in_(teacher_ids)).all() if teacher_ids else []
+        teacher_map = {teacher_id: login for teacher_id, login in teacher_rows}
         return [
-            {"id": row.id, "name": row.name, "teacherId": row.teacher_id}
+            {
+                "id": row.id,
+                "name": row.name,
+                "teacherId": row.teacher_id,
+                "teacherLogin": teacher_map.get(row.teacher_id),
+            }
             for row in class_rows
             if row.id not in filled_class_ids
         ]

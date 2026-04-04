@@ -68,14 +68,6 @@ const loadUsers = async () => {
   const users = await request("/users");
   populateTeacherSelects(users);
   populateRoleUserSelect(users);
-  renderItems(
-    "usersList",
-    users,
-    (u) =>
-      `<b>#${u.id}</b> ${u.login} <span class="mono">(${u.role})</span><br><span class="muted">класс: ${
-        u.classId ?? "-"
-      }, promotedBy: ${u.promotedBy ?? "-"}</span>`
-  );
 };
 
 const populateRoleUserSelect = (users) => {
@@ -401,11 +393,25 @@ const loadStats = async () => {
 const loadUnfilledClasses = async () => {
   const selectedDate = el("statsDate").value;
   const data = await request(`/attendance/unfilled-classes?date=${selectedDate}`);
-  renderItems(
-    "unfilledClassesResult",
-    data,
-    (row) => `<b>#${row.id}</b> ${row.name} <span class="muted">teacherId: ${row.teacherId}</span>`
-  );
+  const container = el("unfilledClassesResult");
+  container.innerHTML = "";
+  if (!data || data.length === 0) {
+    container.innerHTML = '<div class="item muted">Нет данных</div>';
+    return;
+  }
+  if (state.role === "admin") {
+    const rows = data
+      .map(
+        (row) =>
+          `<tr><td>${row.name}</td><td>${row.teacherLogin || "-"}</td><td>${row.teacherId ?? "-"}</td></tr>`
+      )
+      .join("");
+    container.innerHTML = `<div class="item"><table class="attendance-table"><thead><tr><th>Класс</th><th>Учитель</th><th>teacherId</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    return;
+  }
+  container.innerHTML = `<div class="item"><b>Незаполненные классы:</b><br>${data
+    .map((row) => row.name)
+    .join(", ")}</div>`;
 };
 
 const initSession = () => {
@@ -504,15 +510,6 @@ const bindEvents = () => {
   el("dashboardClassSelect")?.addEventListener("change", async (e) => {
     try {
       await applySelectedClass(e.target.value);
-    } catch (err) {
-      toast(err.message, true);
-    }
-  });
-
-  el("refreshUsers")?.addEventListener("click", async () => {
-    try {
-      await loadUsers();
-      toast("Список учителей обновлен");
     } catch (err) {
       toast(err.message, true);
     }

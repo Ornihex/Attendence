@@ -227,6 +227,8 @@ def test_full_api_smoke(server_process):
         200,
         headers=admin_headers,
     ).json()
+    assert all("teacherId" in item for item in unfilled_classes)
+    assert all("teacherLogin" in item for item in unfilled_classes)
     assert any(item["id"] == unfilled_class_id for item in unfilled_classes), "Unfilled class must be returned in unfilled list"
     assert not any(item["id"] == class_id for item in unfilled_classes), "Filled class should not be returned in unfilled list"
 
