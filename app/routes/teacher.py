@@ -406,8 +406,16 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
 def get_daily_statistics(date: date, request: Request, classId: int | None = None):
     token_payload = _get_token_payload(request)
     with session() as s:
-        if classId is None and token_payload["role"] == RoleEnum.admin.value:
-            class_rows = s.query(ClassBase).order_by(ClassBase.id.asc()).all()
+        if classId is None:
+            if token_payload["role"] == RoleEnum.admin.value:
+                class_rows = s.query(ClassBase).order_by(ClassBase.id.asc()).all()
+            else:
+                class_rows = (
+                    s.query(ClassBase)
+                    .filter(ClassBase.teacher_id == int(token_payload["sub"]))
+                    .order_by(ClassBase.id.asc())
+                    .all()
+                )
             return [_daily_stats_for_class(s, row.id, date) for row in class_rows]
 
         resolved_class_id = _resolve_class_for_user(token_payload, classId)

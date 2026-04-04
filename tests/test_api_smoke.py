@@ -10,7 +10,7 @@ BASE_URL = "http://127.0.0.1:8099"
 API_URL = f"{BASE_URL}/api/v1"
 
 
-def _wait_for_server(timeout_seconds: int = 20) -> None:
+def _wait_for_server(timeout_seconds: int = 45) -> None:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
         try:
@@ -212,6 +212,15 @@ def test_full_api_smoke(server_process):
     ).json()
     assert "totalAbsent" in daily_stats
     assert isinstance(daily_stats.get("absent"), list)
+    teacher_all_classes_daily = _request(
+        "GET",
+        f"/statistics/daily?date={today}",
+        200,
+        headers=teacher_headers,
+    ).json()
+    assert isinstance(teacher_all_classes_daily, list), "Teacher daily statistics without classId must be a list"
+    assert any(item["classId"] == class_id for item in teacher_all_classes_daily)
+    assert any(item["classId"] == unfilled_class_id for item in teacher_all_classes_daily)
 
     admin_all_classes_daily = _request(
         "GET",

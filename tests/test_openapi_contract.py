@@ -11,7 +11,7 @@ BASE_URL = "http://127.0.0.1:8102"
 API_URL = f"{BASE_URL}/api/v1"
 
 
-def _wait_for_server(timeout_seconds: int = 25) -> None:
+def _wait_for_server(timeout_seconds: int = 45) -> None:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
         try:

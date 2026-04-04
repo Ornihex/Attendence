@@ -101,12 +101,16 @@ const populateAttendanceClassSelect = (classes) => {
   classSelectIds.forEach((id) => {
     const select = el(id);
     const previousValue = select.value;
-    const options = ['<option value="">Выберите класс</option>'].concat(
-      classes.map((c) => `<option value="${c.id}">#${c.id} - ${c.name}</option>`)
-    );
+    const options = ['<option value="">Выберите класс</option>'];
+    if (id === "statsClassId") {
+      options.push('<option value="__all__">Все классы</option>');
+    }
+    options.push(...classes.map((c) => `<option value="${c.id}">#${c.id} - ${c.name}</option>`));
     select.innerHTML = options.join("");
-    if (previousValue && classes.some((c) => String(c.id) === previousValue)) {
+    if (previousValue && (previousValue === "__all__" || classes.some((c) => String(c.id) === previousValue))) {
       select.value = previousValue;
+    } else if (id === "statsClassId") {
+      select.value = "__all__";
     } else if (state.selectedClassId && classes.some((c) => c.id === state.selectedClassId)) {
       select.value = String(state.selectedClassId);
     }
@@ -380,7 +384,7 @@ const renderDailyStats = (statsBlocks) => {
 const loadStats = async () => {
   const selectedDate = el("statsDate").value;
   const classIdValue = el("statsClassId").value;
-  const allClasses = el("statsAllClasses").checked && state.role === "admin";
+  const allClasses = classIdValue === "__all__";
   const query = allClasses
     ? `?date=${selectedDate}`
     : `?date=${selectedDate}${classIdValue ? `&classId=${classIdValue}` : ""}`;

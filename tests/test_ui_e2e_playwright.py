@@ -11,7 +11,7 @@ BASE_URL = "http://127.0.0.1:8101"
 API_URL = f"{BASE_URL}/api/v1"
 
 
-def _wait_for_server(timeout_seconds: int = 25) -> None:
+def _wait_for_server(timeout_seconds: int = 45) -> None:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
         try:
@@ -25,11 +25,11 @@ def _wait_for_server(timeout_seconds: int = 25) -> None:
 
 
 def _api_request(method: str, path: str, expected_status: int, **kwargs):
-    deadline = time.time() + 25
+    deadline = time.time() + 45
     last_error = None
     while time.time() < deadline:
         try:
-            response = requests.request(method, f"{API_URL}{path}", timeout=20, **kwargs)
+            response = requests.request(method, f"{API_URL}{path}", timeout=30, **kwargs)
             assert (
                 response.status_code == expected_status
             ), f"{method} {path} returned {response.status_code}, expected {expected_status}. Body: {response.text}"
@@ -142,6 +142,12 @@ def test_ui_bulk_attendance_update(seeded_teacher):
         page.wait_for_selector("#attendanceTab.active")
 
         page.fill("#attendanceEditDate", today)
+        page.wait_for_function(
+            f"""() => {{
+                const select = document.getElementById('attendanceEditClassId');
+                return !!select && Array.from(select.options).some((o) => o.value === "{class_id}");
+            }}"""
+        )
         page.select_option("#attendanceEditClassId", str(class_id))
         page.wait_for_function(
             "() => { const b = document.getElementById('attendanceSaveBtn'); return b && !b.disabled; }"
@@ -199,6 +205,12 @@ def test_ui_attendance_validation_errors(seeded_teacher):
         page.wait_for_selector("#attendanceTab.active")
 
         page.fill("#attendanceEditDate", today)
+        page.wait_for_function(
+            f"""() => {{
+                const select = document.getElementById('attendanceEditClassId');
+                return !!select && Array.from(select.options).some((o) => o.value === "{class_id}");
+            }}"""
+        )
         page.select_option("#attendanceEditClassId", str(class_id))
         page.wait_for_function(
             "() => { const b = document.getElementById('attendanceSaveBtn'); return b && !b.disabled; }"

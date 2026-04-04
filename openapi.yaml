@@ -573,7 +573,7 @@ paths:
   /statistics/daily:
     get:
       tags: [Statistics]
-      summary: Получить статистику отсутствующих за дату (по классу или по всем классам для admin)
+      summary: Получить статистику отсутствующих за дату (по классу или по всем доступным классам)
       security:
         - BearerAuth: []
       parameters:
