@@ -417,3 +417,27 @@ def get_daily_statistics(date: date, request: Request, classId: int | None = Non
         if token_payload["role"] == RoleEnum.teacher.value and class_row.teacher_id != int(token_payload["sub"]):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
         return _daily_stats_for_class(s, resolved_class_id, date)
+
+
+@router.get("/attendance/unfilled-classes")
+def get_unfilled_classes(date: date, request: Request):
+    token_payload = _get_token_payload(request)
+    with session() as s:
+        if token_payload["role"] == RoleEnum.admin.value:
+            class_rows = s.query(ClassBase).order_by(ClassBase.id.asc()).all()
+        else:
+            class_rows = (
+                s.query(ClassBase)
+                .filter(ClassBase.teacher_id == int(token_payload["sub"]))
+                .order_by(ClassBase.id.asc())
+                .all()
+            )
+        filled_class_ids = {
+            class_id
+            for (class_id,) in s.query(AttendanceFillBase.class_id).filter(AttendanceFillBase.date == date).all()
+        }
+        return [
+            {"id": row.id, "name": row.name, "teacherId": row.teacher_id}
+            for row in class_rows
+            if row.id not in filled_class_ids
+        ]

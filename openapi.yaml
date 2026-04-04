@@ -495,6 +495,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /attendance/unfilled-classes:
+    get:
+      tags: [Attendance]
+      summary: Получить классы, по которым не отправлена посещаемость за дату
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Классы без отправленной посещаемости
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClassResponse'
+
     put:
       tags: [Attendance]
       summary: Заполнить или обновить посещаемость

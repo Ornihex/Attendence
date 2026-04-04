@@ -371,14 +371,18 @@ const saveAttendanceEdit = async () => {
   });
 };
 
-const renderDailyStats = (block) => {
-  const rows = (block.absent || [])
+const renderDailyStats = (statsBlocks) => {
+  const blocks = Array.isArray(statsBlocks) ? statsBlocks : [statsBlocks];
+  const reportDate = blocks[0]?.date || "";
+  const absentItems = blocks.flatMap((block) => block.absent || []);
+  const rows = absentItems
     .map(
       (item) =>
         `<tr><td>${item.fullName}</td><td>${item.className || `#${item.classId}`}</td><td>${item.reason}</td></tr>`
     )
     .join("");
-  return `<div class="item"><b>Класс #${block.classId}</b> <span class="muted">${block.date}</span><div class="muted">Всего отсутствуют: ${block.totalAbsent}</div><table class="attendance-table"><thead><tr><th>Фамилия</th><th>Класс</th><th>Причина</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const body = rows || '<tr><td colspan="3" class="muted">Отсутствующих нет</td></tr>';
+  return `<div class="item"><b>Отсутствующие за ${reportDate}</b><div class="muted">Всего отсутствуют: ${absentItems.length}</div><table class="attendance-table"><thead><tr><th>Фамилия</th><th>Класс</th><th>Причина</th></tr></thead><tbody>${body}</tbody></table></div>`;
 };
 
 const loadStats = async () => {
@@ -391,11 +395,17 @@ const loadStats = async () => {
   const data = await request(`/statistics/daily${query}`);
   const container = el("statsResult");
   container.innerHTML = "";
-  if (Array.isArray(data)) {
-    container.innerHTML = data.map(renderDailyStats).join("");
-  } else {
-    container.innerHTML = renderDailyStats(data);
-  }
+  container.innerHTML = renderDailyStats(data);
+};
+
+const loadUnfilledClasses = async () => {
+  const selectedDate = el("statsDate").value;
+  const data = await request(`/attendance/unfilled-classes?date=${selectedDate}`);
+  renderItems(
+    "unfilledClassesResult",
+    data,
+    (row) => `<b>#${row.id}</b> ${row.name} <span class="muted">teacherId: ${row.teacherId}</span>`
+  );
 };
 
 const initSession = () => {
@@ -640,6 +650,15 @@ const bindEvents = () => {
     try {
       await loadStats();
       toast("Статистика загружена");
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+
+  el("unfilledClassesBtn")?.addEventListener("click", async () => {
+    try {
+      await loadUnfilledClasses();
+      toast("Незаполненные классы загружены");
     } catch (err) {
       toast(err.message, true);
     }

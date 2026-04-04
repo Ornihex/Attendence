@@ -69,6 +69,7 @@ def test_openapi_yaml_contains_new_attendance_contract():
     assert "presentCount" in spec
     assert "ErrorResponse" in spec
     assert "required: [message]" in spec
+    assert "/attendance/unfilled-classes:" in spec
 
 
 def test_runtime_error_shape_and_attendance_fields(server_process):
@@ -87,6 +88,8 @@ def test_runtime_error_shape_and_attendance_fields(server_process):
     assert isinstance(invalid["message"], str)
 
     classes = _request("GET", "/classes", 200, headers=headers).json()
+    unfilled = _request("GET", f"/attendance/unfilled-classes?date={today}", 200, headers=headers).json()
+    assert isinstance(unfilled, list)
     if classes:
         class_id = classes[0]["id"]
         attendance = _request(

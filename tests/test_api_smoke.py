@@ -65,6 +65,7 @@ def test_full_api_smoke(server_process):
     teacher_login = f"teacher_{ts}"
     teacher_password = "pass1234"
     class_name = f"Class_{ts}"
+    unfilled_class_name = f"Class_unfilled_{ts}"
 
     login_admin = _request(
         "POST",
@@ -113,10 +114,19 @@ def test_full_api_smoke(server_process):
         headers=admin_headers,
         json={"name": class_name, "teacherId": teacher_id},
     )
+    _request(
+        "POST",
+        "/classes",
+        201,
+        headers=admin_headers,
+        json={"name": unfilled_class_name, "teacherId": teacher_id},
+    )
 
     classes_admin = _request("GET", "/classes", 200, headers=admin_headers)
     class_id = next((item["id"] for item in classes_admin.json() if item["name"] == class_name), None)
+    unfilled_class_id = next((item["id"] for item in classes_admin.json() if item["name"] == unfilled_class_name), None)
     assert class_id is not None, "Created class not found in GET /classes response"
+    assert unfilled_class_id is not None, "Second class not found in GET /classes response"
 
     _request("GET", "/classes", 200, headers=teacher_headers)
 
@@ -211,6 +221,14 @@ def test_full_api_smoke(server_process):
     )
     assert isinstance(admin_all_classes_daily.json(), list), "Admin daily statistics response without classId must be a list"
     assert any(item["classId"] == class_id for item in admin_all_classes_daily.json()), "Created class not found in all-classes daily statistics response"
+    unfilled_classes = _request(
+        "GET",
+        f"/attendance/unfilled-classes?date={today}",
+        200,
+        headers=admin_headers,
+    ).json()
+    assert any(item["id"] == unfilled_class_id for item in unfilled_classes), "Unfilled class must be returned in unfilled list"
+    assert not any(item["id"] == class_id for item in unfilled_classes), "Filled class should not be returned in unfilled list"
 
     # Promote teacher to admin.
     _request(
