@@ -110,29 +110,37 @@ def _attendance_for_class(s, current_date: date, class_id: int) -> dict:
     }
 
 
-def _weekly_stats_for_class(s, class_id: int, start_date: date) -> dict:
-    end_date = start_date + timedelta(days=6)
-    fill_rows = (
-        s.query(AttendanceFillBase)
+def _daily_stats_for_class(s, class_id: int, target_date: date) -> dict:
+    class_row = s.query(ClassBase).filter(ClassBase.id == class_id).first()
+    if not class_row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
+    absent_rows = (
+        s.query(AttendanceBase)
         .filter(
             and_(
-                AttendanceFillBase.class_id == class_id,
-                AttendanceFillBase.date >= start_date,
-                AttendanceFillBase.date <= end_date,
+                AttendanceBase.class_id == class_id,
+                AttendanceBase.date == target_date,
             )
         )
         .all()
     )
-    filled_days = len(fill_rows)
-    total_students = sum(row.total_students for row in fill_rows)
-    present_count = sum(row.present_count for row in fill_rows)
+    absent_list = []
+    for row in absent_rows:
+        reason = row.reason or "Неуважительная причина"
+        absent_list.append(
+            {
+                "fullName": row.absent_name,
+                "classId": class_id,
+                "className": class_row.name,
+                "reason": reason,
+            }
+        )
     return {
+        "date": target_date.isoformat(),
         "classId": class_id,
-        "from": start_date.isoformat(),
-        "to": end_date.isoformat(),
-        "totalStudents": total_students,
-        "presentCount": present_count,
-        "filledDays": filled_days,
+        "className": class_row.name,
+        "totalAbsent": len(absent_list),
+        "absent": absent_list,
     }
 
 
@@ -394,13 +402,13 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
         return {"message": "Saved"}
 
 
-@router.get("/statistics/weekly")
-def get_weekly_statistics(startDate: date, request: Request, classId: int | None = None):
+@router.get("/statistics/daily")
+def get_daily_statistics(date: date, request: Request, classId: int | None = None):
     token_payload = _get_token_payload(request)
     with session() as s:
         if classId is None and token_payload["role"] == RoleEnum.admin.value:
             class_rows = s.query(ClassBase).order_by(ClassBase.id.asc()).all()
-            return [_weekly_stats_for_class(s, row.id, startDate) for row in class_rows]
+            return [_daily_stats_for_class(s, row.id, date) for row in class_rows]
 
         resolved_class_id = _resolve_class_for_user(token_payload, classId)
         class_row = s.query(ClassBase).filter(ClassBase.id == resolved_class_id).first()
@@ -408,4 +416,4 @@ def get_weekly_statistics(startDate: date, request: Request, classId: int | None
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
         if token_payload["role"] == RoleEnum.teacher.value and class_row.teacher_id != int(token_payload["sub"]):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        return _weekly_stats_for_class(s, resolved_class_id, startDate)
+        return _daily_stats_for_class(s, resolved_class_id, date)

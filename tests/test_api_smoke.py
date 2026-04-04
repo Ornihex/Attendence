@@ -194,20 +194,23 @@ def test_full_api_smoke(server_process):
     admin_all_classes_attendance = _request("GET", f"/attendance?date={today}", 200, headers=admin_headers)
     assert isinstance(admin_all_classes_attendance.json(), list), "Admin attendance response without classId must be a list"
     assert any(item["classId"] == class_id for item in admin_all_classes_attendance.json()), "Created class not found in all-classes attendance response"
-    _request(
+    daily_stats = _request(
         "GET",
-        f"/statistics/weekly?startDate={today}&classId={class_id}",
+        f"/statistics/daily?date={today}&classId={class_id}",
         200,
         headers=teacher_headers,
-    )
-    admin_all_classes_weekly = _request(
+    ).json()
+    assert "totalAbsent" in daily_stats
+    assert isinstance(daily_stats.get("absent"), list)
+
+    admin_all_classes_daily = _request(
         "GET",
-        f"/statistics/weekly?startDate={today}",
+        f"/statistics/daily?date={today}",
         200,
         headers=admin_headers,
     )
-    assert isinstance(admin_all_classes_weekly.json(), list), "Admin weekly statistics response without classId must be a list"
-    assert any(item["classId"] == class_id for item in admin_all_classes_weekly.json()), "Created class not found in all-classes weekly statistics response"
+    assert isinstance(admin_all_classes_daily.json(), list), "Admin daily statistics response without classId must be a list"
+    assert any(item["classId"] == class_id for item in admin_all_classes_daily.json()), "Created class not found in all-classes daily statistics response"
 
     # Promote teacher to admin.
     _request(

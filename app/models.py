@@ -1,5 +1,3 @@
-from datetime import date
-
 from pydantic import BaseModel, Field
 
 
@@ -38,8 +36,3 @@ class AttendanceRequest(BaseModel):
     present_count: int = Field(alias="presentCount")
     absent_unexcused: list[str] = Field(default_factory=list, alias="absentUnexcused")
     absent_excused: list[ExcusedAbsenceRequest] = Field(default_factory=list, alias="absentExcused")
-
-
-class WeeklyStatisticsQuery(BaseModel):
-    start_date: date = Field(alias="startDate")
-    class_id: int | None = Field(default=None, alias="classId")

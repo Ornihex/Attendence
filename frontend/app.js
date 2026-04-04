@@ -371,24 +371,30 @@ const saveAttendanceEdit = async () => {
   });
 };
 
-const renderWeeklyStats = (block) => {
-  return `<div class="item"><b>Класс #${block.classId}</b> <span class="muted">${block.from} .. ${block.to}</span><div class="muted">Всего: ${block.totalStudents}, присутствуют: ${block.presentCount}, заполнено дней: ${block.filledDays}</div></div>`;
+const renderDailyStats = (block) => {
+  const rows = (block.absent || [])
+    .map(
+      (item) =>
+        `<tr><td>${item.fullName}</td><td>${item.className || `#${item.classId}`}</td><td>${item.reason}</td></tr>`
+    )
+    .join("");
+  return `<div class="item"><b>Класс #${block.classId}</b> <span class="muted">${block.date}</span><div class="muted">Всего отсутствуют: ${block.totalAbsent}</div><table class="attendance-table"><thead><tr><th>Фамилия</th><th>Класс</th><th>Причина</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 };
 
 const loadStats = async () => {
-  const startDate = el("statsStartDate").value;
+  const selectedDate = el("statsDate").value;
   const classIdValue = el("statsClassId").value;
   const allClasses = el("statsAllClasses").checked && state.role === "admin";
   const query = allClasses
-    ? `?startDate=${startDate}`
-    : `?startDate=${startDate}${classIdValue ? `&classId=${classIdValue}` : ""}`;
-  const data = await request(`/statistics/weekly${query}`);
+    ? `?date=${selectedDate}`
+    : `?date=${selectedDate}${classIdValue ? `&classId=${classIdValue}` : ""}`;
+  const data = await request(`/statistics/daily${query}`);
   const container = el("statsResult");
   container.innerHTML = "";
   if (Array.isArray(data)) {
-    container.innerHTML = data.map(renderWeeklyStats).join("");
+    container.innerHTML = data.map(renderDailyStats).join("");
   } else {
-    container.innerHTML = renderWeeklyStats(data);
+    container.innerHTML = renderDailyStats(data);
   }
 };
 
@@ -443,7 +449,7 @@ const bindEvents = () => {
   el("apiBase").value = state.apiBase;
   el("attendanceDate").valueAsDate = new Date();
   el("attendanceEditDate").valueAsDate = new Date();
-  el("statsStartDate").valueAsDate = new Date();
+  el("statsDate").valueAsDate = new Date();
   el("attendanceTotalStudents")?.addEventListener("input", () => updateAttendanceMismatchHint());
   el("attendancePresentCount")?.addEventListener("input", () => updateAttendanceMismatchHint());
   resetAttendanceEditor();
