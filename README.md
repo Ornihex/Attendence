@@ -1,5 +1,22 @@
 # Attendance Management Project
 
+## Documentation Website
+- RU docs: `docs/ru/index.md`
+- EN docs: `docs/en/index.md`
+- MkDocs config: `mkdocs.yml`
+- GitHub Pages workflow: `.github/workflows/docs-pages.yml`
+
+Local preview:
+```bash
+pip install -r docs/requirements.txt
+mkdocs serve
+```
+
+Build:
+```bash
+mkdocs build --strict
+```
+
 ## Table of Contents
 <details>
   <summary>Оглавление</summary>
@@ -544,4 +561,3 @@ Notes:
 - For managed external DBs, provide full `DB_URL` or custom `DB_*` variables.
 
 ---
-

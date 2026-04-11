@@ -1,0 +1,14 @@
+.hero-card {
+  padding: 1.2rem 1.4rem;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(135deg, rgba(15, 138, 115, 0.08), rgba(255, 143, 63, 0.1));
+}
+
+.md-typeset h1 {
+  letter-spacing: -0.02em;
+}
+
+.md-typeset code {
+  border-radius: 6px;
+}

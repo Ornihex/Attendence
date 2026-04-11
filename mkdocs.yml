@@ -1,0 +1,46 @@
+site_name: Attendance Management Docs
+site_description: Documentation for Attendance Management Project
+site_url: https://<your-org-or-user>.github.io/<your-repo>/
+repo_url: https://github.com/<your-org-or-user>/<your-repo>
+repo_name: <your-org-or-user>/<your-repo>
+
+theme:
+  name: material
+  language: ru
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: teal
+      accent: orange
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Русский:
+      - Обзор: ru/index.md
+      - Запуск и Настройка: ru/setup.md
+      - API и Модель Данных: ru/api.md
+      - Деплой на GitHub Pages: ru/pages.md
+  - English:
+      - Overview: en/index.md
+      - Setup and Run: en/setup.md
+      - API and Data Model: en/api.md
+      - GitHub Pages Deployment: en/pages.md
