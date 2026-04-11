@@ -2,7 +2,7 @@
 
 ## Table of Contents
 <details>
-  <summary>Русская версия</summary>
+  <summary>Оглавление</summary>
 
 - [Русский](#ru)
 - [1. Обзор](#ru-1)
@@ -22,7 +22,7 @@
 </details>
 
 <details>
-  <summary>English Version</summary>
+  <summary>table of contents </summary>
 
 - [English](#en)
 - [1. Overview](#en-1)
