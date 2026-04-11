@@ -204,9 +204,37 @@ python -m pytest -q tests/test_api_smoke.py tests/test_ui_e2e_playwright.py test
   - выполните hard refresh
   - проверьте версию ассета `?v=...` в `frontend/index.html`
 
-### 13. Docker (текущее состояние)
-`Dockerfile` присутствует, но пока минимален и без полного runtime entrypoint.
-Для стабильной работы используйте локальный запуск по инструкциям выше.
+### 13. Docker
+В проект добавлен рабочий контейнерный запуск:
+- `Dockerfile` собирает backend + frontend и при старте выполняет `alembic upgrade head`.
+- `docker-compose.yml` поднимает:
+  - `db` (`postgres:16-alpine`)
+  - `app` (FastAPI + миграции)
+
+Быстрый старт:
+```bash
+docker compose up --build
+```
+
+Открыть:
+- UI: `http://127.0.0.1:8080/`
+- Swagger: `http://127.0.0.1:8080/docs`
+- API ping: `http://127.0.0.1:8080/api/ping`
+
+Остановить:
+```bash
+docker compose down
+```
+
+Остановить и удалить volume БД:
+```bash
+docker compose down -v
+```
+
+Примечания:
+- Для compose используются локальные переменные БД:
+  - `DB_HOST=db`, `DB_SSLMODE=disable`, `DB_CHANNEL_BINDING=prefer`
+- Для внешней managed БД можно задать `DB_URL` целиком или свои `DB_*` переменные.
 
 ---
 
@@ -414,9 +442,37 @@ python -m pytest -q tests/test_api_smoke.py tests/test_ui_e2e_playwright.py test
   - hard refresh browser (cache)
   - verify static asset version query (`?v=...`) in `frontend/index.html`
 
-### 13. Docker (Current Status)
-`Dockerfile` exists but is minimal and does not define full runtime entrypoint.
-Use local run instructions above unless container workflow is finalized.
+### 13. Docker
+This repository now includes a working container setup:
+- `Dockerfile` builds backend + frontend and runs `alembic upgrade head` on startup.
+- `docker-compose.yml` starts:
+  - `db` (`postgres:16-alpine`)
+  - `app` (FastAPI + migrations)
+
+Quick start:
+```bash
+docker compose up --build
+```
+
+Open:
+- UI: `http://127.0.0.1:8080/`
+- Swagger: `http://127.0.0.1:8080/docs`
+- API ping: `http://127.0.0.1:8080/api/ping`
+
+Stop:
+```bash
+docker compose down
+```
+
+Stop and remove DB volume:
+```bash
+docker compose down -v
+```
+
+Notes:
+- Compose uses local DB settings:
+  - `DB_HOST=db`, `DB_SSLMODE=disable`, `DB_CHANNEL_BINDING=prefer`
+- For managed external DBs, provide full `DB_URL` or custom `DB_*` variables.
 
 ---
 

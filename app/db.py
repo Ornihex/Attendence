@@ -90,7 +90,13 @@ POSTGRES_PORT = os.getenv("DB_PORT", '5432')
 POSTGRES_USERNAME = os.getenv("DB_USER", 'db_user')
 POSTGRES_PASSWORD = os.getenv("DB_PASSWORD", 'password')
 POSTGRES_DATABASE = os.getenv("DB_NAME", 'db_name')
-DB_URL = f'postgresql://{POSTGRES_USERNAME}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE}?sslmode=require&channel_binding=require'
+DB_SSLMODE = os.getenv("DB_SSLMODE", "require")
+DB_CHANNEL_BINDING = os.getenv("DB_CHANNEL_BINDING", "require")
+DB_URL = os.getenv(
+    "DB_URL",
+    f"postgresql://{POSTGRES_USERNAME}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE}"
+    f"?sslmode={DB_SSLMODE}&channel_binding={DB_CHANNEL_BINDING}",
+)
 
 engine = create_engine(DB_URL, echo=True)
 SessionLocal = sessionmaker(engine)
