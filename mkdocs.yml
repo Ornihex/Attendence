@@ -1,8 +1,8 @@
 site_name: Attendance Management Docs
 site_description: Documentation for Attendance Management Project
-site_url: https://<your-org-or-user>.github.io/<your-repo>/
-repo_url: https://github.com/<your-org-or-user>/<your-repo>
-repo_name: <your-org-or-user>/<your-repo>
+site_url: https://Ornihex.github.io/Attendence/
+repo_url: https://github.com/Ornihex/Attendence
+repo_name: Ornihex/Attendence
 
 theme:
   name: material
