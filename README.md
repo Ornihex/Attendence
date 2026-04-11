@@ -1,7 +1,39 @@
 # Attendance Management Project
 
+## Table of Contents
+- [Русский](#ru)
+- [1. Обзор](#ru-1)
+- [2. Возможности](#ru-2)
+- [3. Технологии](#ru-3)
+- [4. Структура репозитория](#ru-4)
+- [5. Требования](#ru-5)
+- [6. Переменные окружения](#ru-6)
+- [7. Запуск проекта](#ru-7)
+- [8. Миграции (Alembic)](#ru-8)
+- [9. Замечания по API](#ru-9)
+- [10. Тестирование](#ru-10)
+- [11. Роли и безопасность](#ru-11)
+- [12. Частые проблемы](#ru-12)
+- [13. Docker](#ru-13)
+- [English](#en)
+- [1. Overview](#en-1)
+- [2. Features](#en-2)
+- [3. Tech Stack](#en-3)
+- [4. Repository Structure](#en-4)
+- [5. Prerequisites](#en-5)
+- [6. Environment Variables](#en-6)
+- [7. Setup and Run](#en-7)
+- [8. Migrations (Alembic)](#en-8)
+- [9. API Notes](#en-9)
+- [10. Tests](#en-10)
+- [11. Role and Security Rules](#en-11)
+- [12. Troubleshooting](#en-12)
+- [13. Docker](#en-13)
+
+<a id="ru"></a>
 ## Русский
 
+<a id="ru-1"></a>
 ### 1. Обзор
 Это full-stack проект для учета посещаемости:
 - backend на `FastAPI` с JWT-аутентификацией и ролями (`admin` / `teacher`);
@@ -19,6 +51,7 @@
 - `ARCHITECTURE.md` (EN)
 - `ARCHITECTURE_ru.md` (RU)
 
+<a id="ru-2"></a>
 ### 2. Возможности
 - Авторизация: `POST /api/v1/auth/login`
 - Управление учителями (admin):
@@ -37,6 +70,7 @@
   - список отсутствующих за дату (опционально по конкретному классу)
   - общее число отсутствующих
 
+<a id="ru-3"></a>
 ### 3. Технологии
 - Python 3.11+
 - FastAPI / Uvicorn
@@ -48,6 +82,7 @@
 - Pytest + Requests
 - Playwright (UI e2e)
 
+<a id="ru-4"></a>
 ### 4. Структура репозитория
 ```text
 app/
@@ -68,11 +103,13 @@ tests/
 openapi.yaml              # Контракт API
 ```
 
+<a id="ru-5"></a>
 ### 5. Требования
 - PostgreSQL
 - Python 3.11+
 - Для Windows: при необходимости разрешение на запуск скриптов PowerShell
 
+<a id="ru-6"></a>
 ### 6. Переменные окружения
 Приложение читает переменные из `app/.env` (`load_dotenv("app/.env")`).
 
@@ -90,6 +127,7 @@ openapi.yaml              # Контракт API
 - не храните реальные секреты в Git;
 - если секреты уже попали в историю, их нужно заменить.
 
+<a id="ru-7"></a>
 ### 7. Запуск проекта
 
 #### Windows (PowerShell)
@@ -115,6 +153,7 @@ python -m uvicorn main:app --app-dir app --host 127.0.0.1 --port 8080
 - Swagger: `http://127.0.0.1:8080/docs`
 - Проверка живости: `http://127.0.0.1:8080/api/ping`
 
+<a id="ru-8"></a>
 ### 8. Миграции (Alembic)
 Основные команды:
 ```bash
@@ -126,6 +165,7 @@ alembic downgrade -1
 
 В этом проекте Alembic берет строку подключения из `app/.env` через `alembic/env.py`, а не из статического значения `alembic.ini`.
 
+<a id="ru-9"></a>
 ### 9. Замечания по API
 - Формат ошибок унифицирован:
 ```json
@@ -160,6 +200,7 @@ Authorization: Bearer <token>
 
 Полная схема: `openapi.yaml`.
 
+<a id="ru-10"></a>
 ### 10. Тестирование
 #### Smoke API
 ```bash
@@ -186,11 +227,13 @@ python -m pytest -q tests/test_ui_e2e_playwright.py
 python -m pytest -q tests/test_api_smoke.py tests/test_ui_e2e_playwright.py tests/test_openapi_contract.py
 ```
 
+<a id="ru-11"></a>
 ### 11. Роли и безопасность
 - Админ может повышать/понижать роли пользователей.
 - Назначенный админ не может менять роль админа, который его назначил (`promoted_by` защита).
 - Учитель работает только со своими классами.
 
+<a id="ru-12"></a>
 ### 12. Частые проблемы
 - `401 Unauthorized` при логине:
   - проверьте логин/пароль
@@ -204,6 +247,7 @@ python -m pytest -q tests/test_api_smoke.py tests/test_ui_e2e_playwright.py test
   - выполните hard refresh
   - проверьте версию ассета `?v=...` в `frontend/index.html`
 
+<a id="ru-13"></a>
 ### 13. Docker
 В проект добавлен рабочий контейнерный запуск:
 - `Dockerfile` собирает backend + frontend и при старте выполняет `alembic upgrade head`.
@@ -238,8 +282,10 @@ docker compose down -v
 
 ---
 
+<a id="en"></a>
 ## English
 
+<a id="en-1"></a>
 ### 1. Overview
 This project is a full-stack attendance system for schools:
 - `FastAPI` backend with JWT auth and role-based access (`admin` / `teacher`).
@@ -257,6 +303,7 @@ See architecture details:
 - `ARCHITECTURE.md` (EN)
 - `ARCHITECTURE_ru.md` (RU)
 
+<a id="en-2"></a>
 ### 2. Features
 - Authentication: `POST /api/v1/auth/login`
 - Teacher management (admin):
@@ -275,6 +322,7 @@ See architecture details:
   - absent list for date (optionally for one class)
   - total absences count
 
+<a id="en-3"></a>
 ### 3. Tech Stack
 - Python 3.11+
 - FastAPI / Uvicorn
@@ -286,6 +334,7 @@ See architecture details:
 - Pytest + Requests
 - Playwright (for UI e2e tests)
 
+<a id="en-4"></a>
 ### 4. Repository Structure
 ```text
 app/
@@ -306,11 +355,13 @@ tests/
 openapi.yaml              # API contract
 ```
 
+<a id="en-5"></a>
 ### 5. Prerequisites
 - PostgreSQL database
 - Python 3.11+
 - On Windows: PowerShell execution policy allowing venv activation (if needed)
 
+<a id="en-6"></a>
 ### 6. Environment Variables
 The app loads variables from `app/.env` (`load_dotenv("app/.env")`).
 
@@ -328,6 +379,7 @@ Important:
 - Do not commit real DB credentials.
 - Rotate secrets if credentials were exposed in Git history.
 
+<a id="en-7"></a>
 ### 7. Setup and Run
 
 #### Windows (PowerShell)
@@ -353,6 +405,7 @@ Open:
 - API docs: `http://127.0.0.1:8080/docs`
 - Health check: `http://127.0.0.1:8080/api/ping`
 
+<a id="en-8"></a>
 ### 8. Migrations (Alembic)
 Main commands:
 ```bash
@@ -364,6 +417,7 @@ alembic downgrade -1
 
 In this repo, Alembic reads DB URL from `app/.env` through `alembic/env.py`, not from static `alembic.ini`.
 
+<a id="en-9"></a>
 ### 9. API Notes
 - All errors are normalized to:
 ```json
@@ -398,6 +452,7 @@ Primary routes:
 
 See full schema in `openapi.yaml`.
 
+<a id="en-10"></a>
 ### 10. Tests
 #### API smoke
 ```bash
@@ -424,11 +479,13 @@ Run all:
 python -m pytest -q tests/test_api_smoke.py tests/test_ui_e2e_playwright.py tests/test_openapi_contract.py
 ```
 
+<a id="en-11"></a>
 ### 11. Role and Security Rules
 - Admin can promote/demote users.
 - If an admin was appointed by another admin, they cannot change role of the admin who appointed them (`promoted_by` protection).
 - Teachers can work only with classes assigned to them.
 
+<a id="en-12"></a>
 ### 12. Troubleshooting
 - `401 Unauthorized` on login:
   - check credentials
@@ -442,6 +499,7 @@ python -m pytest -q tests/test_api_smoke.py tests/test_ui_e2e_playwright.py test
   - hard refresh browser (cache)
   - verify static asset version query (`?v=...`) in `frontend/index.html`
 
+<a id="en-13"></a>
 ### 13. Docker
 This repository now includes a working container setup:
 - `Dockerfile` builds backend + frontend and runs `alembic upgrade head` on startup.
