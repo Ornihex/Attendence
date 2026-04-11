@@ -219,6 +219,18 @@ button:disabled {
   border: 1px solid var(--line);
 }
 
+.tabs .tab {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.tabs .tab.active {
+  background: linear-gradient(120deg, var(--accent), #27aa90);
+  color: #fff;
+  border-color: transparent;
+}
+
 .list {
   margin-top: 10px;
   display: grid;
