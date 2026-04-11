@@ -7,6 +7,33 @@
   --accent-2: #ff8f3f;
   --line: #d9ded3;
   --danger: #cf4040;
+  --surface: #fff;
+  --surface-soft: #fffcf7;
+  --surface-item: #fffdf9;
+  --card-inner: #fffefb;
+  --toast-bg: #172e27;
+  --shadow: 0 16px 35px rgba(21, 53, 45, 0.08);
+  --shape-a: #ffd199;
+  --shape-b: #9ef2da;
+}
+
+body[data-theme="dark"] {
+  --bg: #111723;
+  --panel: #161f2c;
+  --ink: #e6edf5;
+  --muted: #9ab0c8;
+  --accent: #2ec2a5;
+  --accent-2: #ff9e57;
+  --line: #2a3a4d;
+  --danger: #f06c6c;
+  --surface: #1b2737;
+  --surface-soft: #202f43;
+  --surface-item: #1f2b3a;
+  --card-inner: #1a2635;
+  --toast-bg: #0b121a;
+  --shadow: 0 16px 35px rgba(2, 8, 16, 0.45);
+  --shape-a: #2e6b6f;
+  --shape-b: #5a3e7b;
 }
 
 * {
@@ -17,8 +44,8 @@ body {
   margin: 0;
   font-family: "Manrope", sans-serif;
   color: var(--ink);
-  background: radial-gradient(circle at 20% 10%, #fef5e9, var(--bg) 35%),
-    radial-gradient(circle at 85% 85%, #ecfff3, var(--bg) 30%);
+  background: radial-gradient(circle at 20% 10%, color-mix(in srgb, var(--shape-a) 26%, var(--bg)), var(--bg) 35%),
+    radial-gradient(circle at 85% 85%, color-mix(in srgb, var(--shape-b) 26%, var(--bg)), var(--bg) 30%);
   min-height: 100vh;
 }
 
@@ -32,7 +59,7 @@ body {
 .bg-shape-a {
   width: 280px;
   height: 280px;
-  background: #ffd199;
+  background: var(--shape-a);
   top: -80px;
   right: 10%;
 }
@@ -40,7 +67,7 @@ body {
 .bg-shape-b {
   width: 260px;
   height: 260px;
-  background: #9ef2da;
+  background: var(--shape-b);
   bottom: -90px;
   left: 8%;
 }
@@ -54,9 +81,9 @@ body {
 
 .panel {
   border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--panel) 92%, #ffffff);
+  background: color-mix(in srgb, var(--panel) 92%, var(--surface));
   border-radius: 24px;
-  box-shadow: 0 16px 35px rgba(21, 53, 45, 0.08);
+  box-shadow: var(--shadow);
   padding: 20px;
 }
 
@@ -122,7 +149,7 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 10px 14px;
-  background: #fff;
+  background: var(--surface);
   font-weight: 700;
   cursor: pointer;
 }
@@ -153,7 +180,7 @@ h3 {
 .card {
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: #fff;
+  background: var(--surface);
   padding: 14px;
 }
 
@@ -161,7 +188,7 @@ h3 {
   border: 1px dashed var(--line);
   border-radius: 14px;
   padding: 10px;
-  background: #fffefb;
+  background: var(--card-inner);
 }
 
 .form-grid {
@@ -196,7 +223,8 @@ button {
 
 input,
 select {
-  background: #fffcf7;
+  background: var(--surface-soft);
+  color: var(--ink);
 }
 
 button {
@@ -214,13 +242,13 @@ button:disabled {
 }
 
 .ghost-btn {
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--line);
 }
 
 .tabs .tab {
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--line);
 }
@@ -240,7 +268,7 @@ button:disabled {
 .item {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fffdf9;
+  background: var(--surface-item);
   padding: 10px;
   font-size: 14px;
 }
@@ -309,7 +337,7 @@ button:disabled {
   right: 16px;
   bottom: 16px;
   max-width: 400px;
-  background: #172e27;
+  background: var(--toast-bg);
   color: #fff;
   padding: 12px 14px;
   border-radius: 12px;
@@ -318,6 +346,14 @@ button:disabled {
 
 .toast.error {
   background: var(--danger);
+}
+
+.theme-toggle {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 20;
+  font-weight: 700;
 }
 
 @media (max-width: 900px) {

@@ -33,4 +33,4 @@
 ```
 
 ## OpenAPI
-Полная спецификация: [`openapi.yaml`](https://github.com/<your-org-or-user>/<your-repo>/blob/main/openapi.yaml)
+Полная спецификация: [`openapi.yaml`](https://github.com/Ornihex/Attendence/blob/main/openapi.yaml)

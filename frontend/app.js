@@ -10,6 +10,8 @@ const state = {
   attendanceLoadRequestId: 0,
 };
 
+const THEME_KEY = "attendance_theme";
+
 const el = (id) => document.getElementById(id);
 const excusedReasons = [
   "Болезнь",
@@ -24,6 +26,32 @@ const toast = (message, isError = false) => {
   node.classList.remove("hidden", "error");
   if (isError) node.classList.add("error");
   setTimeout(() => node.classList.add("hidden"), 3200);
+};
+
+const applyTheme = (theme) => {
+  const resolvedTheme = theme === "dark" ? "dark" : "light";
+  document.body.dataset.theme = resolvedTheme;
+  const btn = el("themeToggleBtn");
+  if (btn) {
+    btn.textContent = resolvedTheme === "dark" ? "Светлая тема" : "Тёмная тема";
+    btn.setAttribute("aria-label", resolvedTheme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему");
+  }
+};
+
+const initTheme = () => {
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  if (savedTheme === "dark" || savedTheme === "light") {
+    applyTheme(savedTheme);
+    return;
+  }
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(prefersDark ? "dark" : "light");
+};
+
+const toggleTheme = () => {
+  const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(nextTheme);
+  localStorage.setItem(THEME_KEY, nextTheme);
 };
 
 const request = async (path, options = {}) => {
@@ -525,6 +553,7 @@ const bindEvents = () => {
   el("attendanceTotalStudents")?.addEventListener("input", () => updateAttendanceMismatchHint());
   el("attendancePresentCount")?.addEventListener("input", () => updateAttendanceMismatchHint());
   resetAttendanceEditor();
+  el("themeToggleBtn")?.addEventListener("click", toggleTheme);
 
   el("loginForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -760,5 +789,6 @@ const bindEvents = () => {
   });
 };
 
+initTheme();
 bindEvents();
 initSession();

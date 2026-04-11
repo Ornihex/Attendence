@@ -33,4 +33,4 @@ All errors are normalized to:
 ```
 
 ## OpenAPI
-Full contract: [`openapi.yaml`](https://github.com/<your-org-or-user>/<your-repo>/blob/main/openapi.yaml)
+Full contract: [`openapi.yaml`](https://github.com/Ornihex/Attendence/blob/main/openapi.yaml)

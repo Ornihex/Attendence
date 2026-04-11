@@ -17,7 +17,7 @@ Build:
 mkdocs build --strict
 ```
 
-## Table of Contents
+## Оглавление/Table of Contents
 <details>
   <summary>Оглавление</summary>
 
