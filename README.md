@@ -22,7 +22,7 @@
 </details>
 
 <details>
-  <summary>table of contents </summary>
+  <summary>Table of contents </summary>
 
 - [English](#en)
 - [1. Overview](#en-1)
