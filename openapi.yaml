@@ -126,6 +126,13 @@ components:
         teacherId:
           type: integer
 
+    UpdateClassTeacherRequest:
+      type: object
+      required: [teacherId]
+      properties:
+        teacherId:
+          type: integer
+
     ExcusedAbsence:
       type: object
       required: [fullName, reason]
@@ -463,6 +470,84 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Имя класса занято
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /classes/{id}/teacher:
+    patch:
+      tags: [Classes]
+      summary: Переназначить класс другому учителю (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClassTeacherRequest'
+      responses:
+        '200':
+          description: Обновлено
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message:
+                    type: string
+        '403':
+          description: Нет прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Класс или учитель не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /classes/{id}:
+    delete:
+      tags: [Classes]
+      summary: Удалить класс (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Удалено
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message:
+                    type: string
+        '403':
+          description: Нет прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Класс не найден
           content:
             application/json:
               schema:

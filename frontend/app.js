@@ -3,6 +3,8 @@ const state = {
   token: "",
   role: "",
   userId: null,
+  users: [],
+  classes: [],
   selectedClassId: null,
   attendanceEditClassId: null,
   attendanceLoadRequestId: 0,
@@ -41,6 +43,16 @@ const setRoleVisibility = () => {
   });
 };
 
+const findClassById = (classId) => {
+  if (!classId) return null;
+  return state.classes.find((row) => row.id === Number(classId)) || null;
+};
+
+const findTeacherById = (teacherId) => {
+  if (!teacherId) return null;
+  return state.users.find((row) => row.id === Number(teacherId)) || null;
+};
+
 const activateTab = (id) => {
   document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
   document.querySelectorAll(".tab-content").forEach((v) => v.classList.remove("active"));
@@ -66,8 +78,10 @@ const renderItems = (containerId, items, formatter) => {
 const loadUsers = async () => {
   if (state.role !== "admin") return;
   const users = await request("/users");
+  state.users = users;
   populateTeacherSelects(users);
   populateRoleUserSelect(users);
+  renderSelectedClassMeta();
 };
 
 const populateRoleUserSelect = (users) => {
@@ -83,9 +97,10 @@ const populateRoleUserSelect = (users) => {
 
 const populateTeacherSelects = (users) => {
   const teachers = users.filter((u) => u.role === "teacher");
-  const ids = ["classTeacherId", "credTeacherId"];
+  const ids = ["classTeacherId", "credTeacherId", "manageClassTeacherId"];
   ids.forEach((id) => {
     const select = el(id);
+    if (!select) return;
     const prev = select.value;
     select.innerHTML = ['<option value="">Выберите учителя</option>']
       .concat(teachers.map((t) => `<option value="${t.id}">#${t.id} - ${t.login}</option>`))
@@ -132,19 +147,44 @@ const populateDashboardClassSelect = (classes) => {
 
 const loadClasses = async () => {
   const classes = await request("/classes");
+  state.classes = classes;
   populateDashboardClassSelect(classes);
   populateAttendanceClassSelect(classes);
+  renderSelectedClassMeta();
 };
 
 const applySelectedClass = async (classIdValue) => {
-  if (!classIdValue) return;
+  if (!classIdValue) {
+    state.selectedClassId = null;
+    renderSelectedClassMeta();
+    return;
+  }
   state.selectedClassId = Number(classIdValue);
   el("attendanceEditClassId").value = String(state.selectedClassId);
   el("attendanceClassId").value = String(state.selectedClassId);
   el("statsClassId").value = String(state.selectedClassId);
+  renderSelectedClassMeta();
   if (el("attendanceTab").classList.contains("active")) {
     await loadAttendanceForEdit();
   }
+};
+
+const renderSelectedClassMeta = () => {
+  const meta = el("selectedClassMeta");
+  if (!meta || state.role !== "admin") return;
+  const classRow = findClassById(state.selectedClassId);
+  if (!classRow) {
+    meta.textContent = "Выберите класс в списке слева";
+    if (el("manageClassTeacherId")) el("manageClassTeacherId").value = "";
+    setClassManagementEnabled(false);
+    return;
+  }
+  const teacher = findTeacherById(classRow.teacherId);
+  meta.textContent = `Класс: #${classRow.id} ${classRow.name}. Текущий учитель: ${teacher ? `${teacher.login} (#${teacher.id})` : `#${classRow.teacherId}`}`;
+  if (el("manageClassTeacherId")) {
+    el("manageClassTeacherId").value = classRow.teacherId ? String(classRow.teacherId) : "";
+  }
+  setClassManagementEnabled(true);
 };
 
 const renderAttendanceTable = (block) => {
@@ -199,6 +239,15 @@ const setAttendanceSaveEnabled = (enabled) => {
   const saveButton = el("attendanceSaveBtn");
   if (!saveButton) return;
   saveButton.disabled = !enabled;
+};
+
+const setClassManagementEnabled = (enabled) => {
+  const select = el("manageClassTeacherId");
+  const deleteBtn = el("deleteClassBtn");
+  const reassignBtn = document.querySelector("#reassignClassForm button[type='submit']");
+  if (select) select.disabled = !enabled;
+  if (deleteBtn) deleteBtn.disabled = !enabled;
+  if (reassignBtn) reassignBtn.disabled = !enabled;
 };
 
 const resetAttendanceEditor = (statusMessage = "Выберите класс и дату") => {
@@ -452,6 +501,9 @@ const clearSession = () => {
   state.token = "";
   state.role = "";
   state.userId = null;
+  state.users = [];
+  state.classes = [];
+  state.selectedClassId = null;
   localStorage.removeItem("attendance_session");
 };
 
@@ -460,7 +512,7 @@ const openAppView = async () => {
   el("appView").classList.remove("hidden");
   el("sessionInfo").textContent = `role: ${state.role}, userId: ${state.userId}`;
   setRoleVisibility();
-  activateTab("classesTab");
+  activateTab(state.role === "admin" ? "classesTab" : "attendanceTab");
   await loadClasses();
   if (state.role === "admin") await loadUsers();
 };
@@ -610,6 +662,48 @@ const bindEvents = () => {
       e.target.reset();
       await loadClasses();
       toast("Класс создан");
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+
+  el("reassignClassForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      if (state.role !== "admin") throw new Error("Forbidden");
+      if (!state.selectedClassId) throw new Error("Сначала выберите класс");
+      const teacherId = Number(el("manageClassTeacherId").value);
+      if (!teacherId) throw new Error("Выберите учителя");
+      await request(`/classes/${state.selectedClassId}/teacher`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teacherId }),
+      });
+      await loadClasses();
+      await loadUsers();
+      toast("Класс переназначен");
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+
+  el("deleteClassBtn")?.addEventListener("click", async () => {
+    try {
+      if (state.role !== "admin") throw new Error("Forbidden");
+      if (!state.selectedClassId) throw new Error("Сначала выберите класс");
+      const classRow = findClassById(state.selectedClassId);
+      const confirmed = window.confirm(
+        `Удалить класс ${classRow ? `"${classRow.name}"` : `#${state.selectedClassId}`}? Действие необратимо.`
+      );
+      if (!confirmed) return;
+      await request(`/classes/${state.selectedClassId}`, {
+        method: "DELETE",
+      });
+      state.selectedClassId = null;
+      if (el("dashboardClassSelect")) el("dashboardClassSelect").value = "";
+      await loadClasses();
+      await loadUsers();
+      toast("Класс удалён");
     } catch (err) {
       toast(err.message, true);
     }

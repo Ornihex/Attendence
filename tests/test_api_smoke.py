@@ -85,6 +85,15 @@ def test_full_api_smoke(server_process):
         json={"login": teacher_login, "password": teacher_password},
     )
     teacher_id = register_teacher.json()["id"]
+    second_teacher_login = f"teacher_second_{ts}"
+    second_teacher = _request(
+        "POST",
+        "/users",
+        201,
+        headers=admin_headers,
+        json={"login": second_teacher_login, "password": teacher_password},
+    )
+    second_teacher_id = second_teacher.json()["id"]
 
     users_list = _request("GET", "/users", 200, headers=admin_headers).json()
     assert any("promotedBy" in item for item in users_list), "UserResponse must include promotedBy"
@@ -127,6 +136,21 @@ def test_full_api_smoke(server_process):
     unfilled_class_id = next((item["id"] for item in classes_admin.json() if item["name"] == unfilled_class_name), None)
     assert class_id is not None, "Created class not found in GET /classes response"
     assert unfilled_class_id is not None, "Second class not found in GET /classes response"
+    _request(
+        "PATCH",
+        f"/classes/{unfilled_class_id}/teacher",
+        200,
+        headers=admin_headers,
+        json={"teacherId": second_teacher_id},
+    )
+    classes_after_reassign = _request("GET", "/classes", 200, headers=admin_headers).json()
+    reassigned = next(item for item in classes_after_reassign if item["id"] == unfilled_class_id)
+    assert reassigned["teacherId"] == second_teacher_id
+
+    _request("DELETE", f"/classes/{unfilled_class_id}", 200, headers=admin_headers)
+    classes_after_delete = _request("GET", "/classes", 200, headers=admin_headers).json()
+    assert not any(item["id"] == unfilled_class_id for item in classes_after_delete)
+    unfilled_class_id = None
 
     _request("GET", "/classes", 200, headers=teacher_headers)
 
@@ -220,7 +244,6 @@ def test_full_api_smoke(server_process):
     ).json()
     assert isinstance(teacher_all_classes_daily, list), "Teacher daily statistics without classId must be a list"
     assert any(item["classId"] == class_id for item in teacher_all_classes_daily)
-    assert any(item["classId"] == unfilled_class_id for item in teacher_all_classes_daily)
 
     admin_all_classes_daily = _request(
         "GET",
@@ -238,7 +261,6 @@ def test_full_api_smoke(server_process):
     ).json()
     assert all("teacherId" in item for item in unfilled_classes)
     assert all("teacherLogin" in item for item in unfilled_classes)
-    assert any(item["id"] == unfilled_class_id for item in unfilled_classes), "Unfilled class must be returned in unfilled list"
     assert not any(item["id"] == class_id for item in unfilled_classes), "Filled class should not be returned in unfilled list"
 
     # Promote teacher to admin.

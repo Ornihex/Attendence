@@ -262,3 +262,25 @@ def test_ui_attendance_save_disabled_without_class(seeded_teacher):
         assert page.locator("#attendanceSaveBtn").is_disabled()
 
         browser.close()
+
+
+def test_ui_teacher_has_no_classes_tab(seeded_teacher):
+    teacher_login = seeded_teacher["teacher_login"]
+    teacher_password = seeded_teacher["teacher_password"]
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(BASE_URL, wait_until="domcontentloaded")
+
+        page.fill("#apiBase", API_URL)
+        page.fill("#login", teacher_login)
+        page.fill("#password", teacher_password)
+        page.click("#loginForm button[type='submit']")
+
+        page.wait_for_selector("#appView:not(.hidden)")
+        assert page.locator("button[data-tab='classesTab']").is_hidden()
+        assert page.locator("#classesTab").is_hidden()
+        page.wait_for_selector("#attendanceTab.active")
+
+        browser.close()

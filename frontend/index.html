@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/frontend/styles.css?v=20260407" />
+    <link rel="stylesheet" href="/frontend/styles.css?v=20260411" />
   </head>
   <body>
     <div class="bg-shape bg-shape-a"></div>
@@ -37,13 +37,13 @@
         </header>
 
         <nav class="tabs">
-          <button class="tab active" data-tab="classesTab">Классы</button>
+          <button class="tab active admin-only" data-tab="classesTab">Классы</button>
           <button class="tab" data-tab="attendanceTab">Посещаемость</button>
           <button class="tab" data-tab="statsTab">Статистика</button>
           <button class="tab admin-only" data-tab="usersTab">Учителя</button>
         </nav>
 
-        <section id="classesTab" class="tab-content active">
+        <section id="classesTab" class="tab-content active admin-only">
           <div class="grid two-cols">
             <article class="card">
               <h3>Выбор класса</h3>
@@ -68,6 +68,20 @@
                 </label>
                 <button type="submit">Создать</button>
               </form>
+            </article>
+            <article id="manageClassCard" class="card admin-only">
+              <h3>Управление выбранным классом</h3>
+              <div id="selectedClassMeta" class="muted">Выберите класс в списке слева</div>
+              <form id="reassignClassForm" class="form-grid">
+                <label
+                  >Новый учитель
+                  <select id="manageClassTeacherId" required>
+                    <option value="">Выберите учителя</option>
+                  </select>
+                </label>
+                <button type="submit">Переназначить класс</button>
+              </form>
+              <button id="deleteClassBtn" type="button" class="ghost-btn">Удалить класс</button>
             </article>
           </div>
         </section>
@@ -211,6 +225,6 @@
     </main>
 
     <aside id="toast" class="toast hidden"></aside>
-    <script src="/frontend/app.js?v=20260407"></script>
+    <script src="/frontend/app.js?v=20260411"></script>
   </body>
 </html>

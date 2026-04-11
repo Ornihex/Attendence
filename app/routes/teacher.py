@@ -7,12 +7,22 @@ from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from db import AttendanceBase, AttendanceFillBase, AttendanceStatusEnum, ClassBase, RoleEnum, UserBase, engine
+from db import (
+    AttendanceBase,
+    AttendanceFillBase,
+    AttendanceStatusEnum,
+    ClassBase,
+    RoleEnum,
+    StudentBase,
+    UserBase,
+    engine,
+)
 from models import (
     AttendanceRequest,
     CreateClassRequest,
     CreateTeacherRequest,
     LoginRequest,
+    UpdateClassTeacherRequest,
     UpdateCredentialsRequest,
     UpdateRoleRequest,
 )
@@ -293,6 +303,38 @@ def create_class(request: Request, payload: CreateClassRequest):
             s.rollback()
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Class name already exists")
         return {"message": "Class created"}
+
+
+@router.patch("/classes/{id}/teacher")
+def reassign_class_teacher(id: int, request: Request, payload: UpdateClassTeacherRequest):
+    token_payload = _get_token_payload(request)
+    _require_role(token_payload, {RoleEnum.admin.value})
+    with session() as s:
+        class_row = s.query(ClassBase).filter(ClassBase.id == id).first()
+        if not class_row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
+        teacher = s.query(UserBase).filter(and_(UserBase.id == payload.teacher_id, UserBase.role == RoleEnum.teacher)).first()
+        if not teacher:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found")
+        class_row.teacher_id = payload.teacher_id
+        s.commit()
+        return {"message": "Updated"}
+
+
+@router.delete("/classes/{id}")
+def delete_class(id: int, request: Request):
+    token_payload = _get_token_payload(request)
+    _require_role(token_payload, {RoleEnum.admin.value})
+    with session() as s:
+        class_row = s.query(ClassBase).filter(ClassBase.id == id).first()
+        if not class_row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
+        s.query(AttendanceBase).filter(AttendanceBase.class_id == id).delete()
+        s.query(AttendanceFillBase).filter(AttendanceFillBase.class_id == id).delete()
+        s.query(StudentBase).filter(StudentBase.class_id == id).delete()
+        s.delete(class_row)
+        s.commit()
+        return {"message": "Deleted"}
 
 
 @router.get("/attendance")

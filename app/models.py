@@ -25,6 +25,10 @@ class CreateClassRequest(BaseModel):
     teacher_id: int = Field(alias="teacherId")
 
 
+class UpdateClassTeacherRequest(BaseModel):
+    teacher_id: int = Field(alias="teacherId")
+
+
 class ExcusedAbsenceRequest(BaseModel):
     full_name: str = Field(alias="fullName")
     reason: str
