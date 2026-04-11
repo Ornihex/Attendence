@@ -1,6 +1,9 @@
 # Attendance Management Project
 
 ## Table of Contents
+<details>
+  <summary>Русская версия</summary>
+
 - [Русский](#ru)
 - [1. Обзор](#ru-1)
 - [2. Возможности](#ru-2)
@@ -15,6 +18,12 @@
 - [11. Роли и безопасность](#ru-11)
 - [12. Частые проблемы](#ru-12)
 - [13. Docker](#ru-13)
+
+</details>
+
+<details>
+  <summary>English Version</summary>
+
 - [English](#en)
 - [1. Overview](#en-1)
 - [2. Features](#en-2)
@@ -29,6 +38,8 @@
 - [11. Role and Security Rules](#en-11)
 - [12. Troubleshooting](#en-12)
 - [13. Docker](#en-13)
+
+</details>
 
 <a id="ru"></a>
 ## Русский
