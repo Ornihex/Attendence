@@ -1,8 +1,11 @@
 from datetime import date, datetime, timedelta
+from io import BytesIO
 
 import bcrypt
 import jwt
 from fastapi import APIRouter, HTTPException, Request, status
+from fastapi.responses import Response
+from openpyxl import Workbook
 from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -152,6 +155,28 @@ def _daily_stats_for_class(s, class_id: int, target_date: date) -> dict:
         "totalAbsent": len(absent_list),
         "absent": absent_list,
     }
+
+
+def _resolve_daily_stats_blocks(s, token_payload: dict, target_date: date, class_id: int | None) -> list[dict]:
+    if class_id is None:
+        if token_payload["role"] == RoleEnum.admin.value:
+            class_rows = s.query(ClassBase).order_by(ClassBase.id.asc()).all()
+        else:
+            class_rows = (
+                s.query(ClassBase)
+                .filter(ClassBase.teacher_id == int(token_payload["sub"]))
+                .order_by(ClassBase.id.asc())
+                .all()
+            )
+        return [_daily_stats_for_class(s, row.id, target_date) for row in class_rows]
+
+    resolved_class_id = _resolve_class_for_user(token_payload, class_id)
+    class_row = s.query(ClassBase).filter(ClassBase.id == resolved_class_id).first()
+    if not class_row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
+    if token_payload["role"] == RoleEnum.teacher.value and class_row.teacher_id != int(token_payload["sub"]):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    return [_daily_stats_for_class(s, resolved_class_id, target_date)]
 
 
 @router.post("/auth/login")
@@ -448,25 +473,67 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
 def get_daily_statistics(date: date, request: Request, classId: int | None = None):
     token_payload = _get_token_payload(request)
     with session() as s:
+        blocks = _resolve_daily_stats_blocks(s, token_payload, date, classId)
         if classId is None:
-            if token_payload["role"] == RoleEnum.admin.value:
-                class_rows = s.query(ClassBase).order_by(ClassBase.id.asc()).all()
-            else:
-                class_rows = (
-                    s.query(ClassBase)
-                    .filter(ClassBase.teacher_id == int(token_payload["sub"]))
-                    .order_by(ClassBase.id.asc())
-                    .all()
-                )
-            return [_daily_stats_for_class(s, row.id, date) for row in class_rows]
+            return blocks
+        return blocks[0]
 
-        resolved_class_id = _resolve_class_for_user(token_payload, classId)
-        class_row = s.query(ClassBase).filter(ClassBase.id == resolved_class_id).first()
-        if not class_row:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
-        if token_payload["role"] == RoleEnum.teacher.value and class_row.teacher_id != int(token_payload["sub"]):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        return _daily_stats_for_class(s, resolved_class_id, date)
+
+@router.get("/statistics/daily/export")
+def export_daily_statistics_excel(date: date, request: Request, classId: int | None = None):
+    token_payload = _get_token_payload(request)
+    with session() as s:
+        blocks = _resolve_daily_stats_blocks(s, token_payload, date, classId)
+
+    workbook = Workbook()
+    details_sheet = workbook.active
+    details_sheet.title = "Absent details"
+    details_sheet.append(["Date", "Class ID", "Class Name", "Full Name", "Reason"])
+
+    for block in blocks:
+        for item in block["absent"]:
+            details_sheet.append(
+                [
+                    block["date"],
+                    block["classId"],
+                    block["className"],
+                    item["fullName"],
+                    item["reason"],
+                ]
+            )
+
+    if details_sheet.max_row == 1:
+        details_sheet.append([date.isoformat(), "-", "-", "No absences", "-"])
+
+    summary_sheet = workbook.create_sheet("Summary")
+    summary_sheet.append(["Date", "Class ID", "Class Name", "Total absent"])
+    total_absent_all = 0
+    for block in blocks:
+        summary_sheet.append([block["date"], block["classId"], block["className"], block["totalAbsent"]])
+        total_absent_all += block["totalAbsent"]
+    summary_sheet.append([date.isoformat(), "-", "TOTAL", total_absent_all])
+
+    details_sheet.column_dimensions["A"].width = 14
+    details_sheet.column_dimensions["B"].width = 10
+    details_sheet.column_dimensions["C"].width = 24
+    details_sheet.column_dimensions["D"].width = 28
+    details_sheet.column_dimensions["E"].width = 28
+    summary_sheet.column_dimensions["A"].width = 14
+    summary_sheet.column_dimensions["B"].width = 10
+    summary_sheet.column_dimensions["C"].width = 24
+    summary_sheet.column_dimensions["D"].width = 14
+
+    output = BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    class_suffix = f"_class_{classId}" if classId is not None else "_all_classes"
+    filename = f"attendance_statistics_{date.isoformat()}{class_suffix}.xlsx"
+
+    return Response(
+        content=output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/attendance/unfilled-classes")

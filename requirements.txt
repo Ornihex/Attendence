@@ -8,3 +8,4 @@ pydantic[email]
 #playwright
 pytest
 requests
+openpyxl

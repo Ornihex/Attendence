@@ -263,6 +263,17 @@ def test_full_api_smoke(server_process):
     assert all("teacherLogin" in item for item in unfilled_classes)
     assert not any(item["id"] == class_id for item in unfilled_classes), "Filled class should not be returned in unfilled list"
 
+    export_daily = _request(
+        "GET",
+        f"/statistics/daily/export?date={today}",
+        200,
+        headers=admin_headers,
+    )
+    assert export_daily.headers["Content-Type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert export_daily.content[:2] == b"PK", "XLSX payload must be a zip-based file"
+
     # Promote teacher to admin.
     _request(
         "PATCH",

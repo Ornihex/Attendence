@@ -471,6 +471,45 @@ const loadStats = async () => {
   container.innerHTML = renderDailyStats(data);
 };
 
+const exportStatsToExcel = async () => {
+  const selectedDate = el("statsDate").value;
+  if (!selectedDate) {
+    throw new Error("Укажите дату для экспорта");
+  }
+  const classIdValue = el("statsClassId").value;
+  const allClasses = classIdValue === "__all__";
+  const query = allClasses
+    ? `?date=${selectedDate}`
+    : `?date=${selectedDate}${classIdValue ? `&classId=${classIdValue}` : ""}`;
+
+  const headers = {};
+  if (state.token) headers.Authorization = `Bearer ${state.token}`;
+  const response = await fetch(`${state.apiBase}/statistics/daily/export${query}`, { headers });
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const errorPayload = await response.json();
+      message = errorPayload.message || message;
+    } catch {
+      // no-op
+    }
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("content-disposition") || "";
+  const fileNameMatch = disposition.match(/filename=\"?([^\";]+)\"?/i);
+  const fileName = fileNameMatch ? fileNameMatch[1] : `attendance_statistics_${selectedDate}.xlsx`;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
 const loadUnfilledClasses = async () => {
   const selectedDate = el("statsDate").value;
   const data = await request(`/attendance/unfilled-classes?date=${selectedDate}`);
@@ -774,6 +813,15 @@ const bindEvents = () => {
     try {
       await loadStats();
       toast("Статистика загружена");
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+
+  el("exportStatsBtn")?.addEventListener("click", async () => {
+    try {
+      await exportStatsToExcel();
+      toast("Excel файл со статистикой скачан");
     } catch (err) {
       toast(err.message, true);
     }

@@ -682,3 +682,42 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/DailyStatisticsResponse'
                   - $ref: '#/components/schemas/DailyStatisticsByClassesResponse'
+
+  /statistics/daily/export:
+    get:
+      tags: [Statistics]
+      summary: Экспорт статистики отсутствующих за дату в Excel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: classId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Excel-файл со статистикой
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '403':
+          description: Нет прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Класс не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

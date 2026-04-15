@@ -74,6 +74,7 @@ def test_openapi_yaml_contains_new_attendance_contract():
     assert "/classes/{id}/teacher:" in spec
     assert "/classes/{id}:" in spec
     assert "UpdateClassTeacherRequest" in spec
+    assert "/statistics/daily/export:" in spec
 
 
 def test_runtime_error_shape_and_attendance_fields(server_process):
