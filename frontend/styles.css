@@ -356,6 +356,42 @@ button:disabled {
   font-weight: 700;
 }
 
+.meta-block {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+}
+
+.meta-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.meta-block a,
+.app-footer a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.meta-block a:hover,
+.app-footer a:hover {
+  text-decoration: underline;
+}
+
+.app-footer {
+  max-width: 1160px;
+  margin: 0 auto 18px;
+  padding: 0 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 13px;
+}
+
 @media (max-width: 900px) {
   .two-cols {
     grid-template-columns: 1fr;

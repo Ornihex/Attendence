@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/frontend/styles.css?v=20260412-1" />
+    <link rel="stylesheet" href="/frontend/styles.css?v=20260417-1" />
   </head>
   <body>
     <button id="themeToggleBtn" class="ghost-btn theme-toggle" type="button" aria-label="Сменить тему">
@@ -28,6 +28,16 @@
           <label>Пароль <input id="password" type="password" required /></label>
           <button type="submit">Войти</button>
         </form>
+        <div class="meta-block">
+          <div class="meta-title">Руководство и контакты</div>
+          <a href="https://ornihex.github.io/Attendence/docs/ru/user-guide/" target="_blank" rel="noopener noreferrer">
+            Открыть руководство пользователя
+          </a>
+          <a href="https://github.com/Ornihex/Attendence" target="_blank" rel="noopener noreferrer">
+            Репозиторий: github.com/Ornihex/Attendence
+          </a>
+          <a href="mailto:ornihex@proton.me">Почта: ornihex@proton.me</a>
+        </div>
       </section>
 
       <section id="appView" class="panel hidden">
@@ -228,6 +238,16 @@
         </section>
       </section>
     </main>
+
+    <footer class="app-footer">
+      <a href="https://ornihex.github.io/Attendence/docs/ru/user-guide/" target="_blank" rel="noopener noreferrer">
+        Руководство пользователя
+      </a>
+      <a href="https://github.com/Ornihex/Attendence" target="_blank" rel="noopener noreferrer">
+        github.com/Ornihex/Attendence
+      </a>
+      <a href="mailto:ornihex@proton.me">ornihex@proton.me</a>
+    </footer>
 
     <aside id="toast" class="toast hidden"></aside>
     <script src="/frontend/app.js?v=20260412-1"></script>

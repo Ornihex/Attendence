@@ -14,6 +14,8 @@
 - Docker / Docker Compose
 
 ## Разделы
+- [Руководство пользователя](user-guide.md)
 - [Запуск и настройка](setup.md)
 - [API и модель данных](api.md)
 - [Деплой сайта документации на GitHub Pages](pages.md)
+

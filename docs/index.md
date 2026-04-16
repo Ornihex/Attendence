@@ -11,8 +11,10 @@
 </div>
 
 ## Quick Links
+- User Guide (RU): [docs/ru/user-guide.md](ru/user-guide.md)
 - API contract: [`openapi.yaml`](https://github.com/Ornihex/Attendence/blob/main/openapi.yaml)
 - Architecture EN: [`ARCHITECTURE.md`](https://github.com/Ornihex/Attendence/blob/main/ARCHITECTURE.md)
 - Architecture RU: [`ARCHITECTURE_ru.md`](https://github.com/Ornihex/Attendence/blob/main/ARCHITECTURE_ru.md)
 - Main README: [`README.md`](https://github.com/Ornihex/Attendence/blob/main/README.md)
+
 

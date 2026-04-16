@@ -45,6 +45,7 @@ nav:
   - Home: index.md
   - Русский:
       - Обзор: ru/index.md
+      - Руководство пользователя: ru/user-guide.md
       - Запуск и Настройка: ru/setup.md
       - API и Модель Данных: ru/api.md
       - Деплой на GitHub Pages: ru/pages.md
@@ -53,4 +54,5 @@ nav:
       - Setup and Run: en/setup.md
       - API and Data Model: en/api.md
       - GitHub Pages Deployment: en/pages.md
+
 
