@@ -675,7 +675,7 @@ const bindEvents = () => {
       });
       e.target.reset();
       await loadUsers();
-      toast("Credentials обновлены");
+      toast("Учётные данные обновлены");
     } catch (err) {
       toast(err.message, true);
     }
@@ -696,7 +696,7 @@ const bindEvents = () => {
       });
       e.target.reset();
       await loadUsers();
-      toast("Собственные credentials обновлены");
+      toast("Собственные учётные данные обновлены");
     } catch (err) {
       toast(err.message, true);
     }
