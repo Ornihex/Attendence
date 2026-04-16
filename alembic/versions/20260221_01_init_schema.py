@@ -11,7 +11,6 @@ from alembic import op
 import sqlalchemy as sa
 
 
-# revision identifiers, used by Alembic.
 revision: str = "20260221_01"
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
@@ -23,7 +22,6 @@ attendance_status_enum = sa.Enum("present", "excused", "unexcused", name="attend
 
 
 def upgrade() -> None:
-    # Drop legacy schema objects from previous project versions.
     op.execute("DROP TABLE IF EXISTS attendance CASCADE")
     op.execute("DROP TABLE IF EXISTS pupils CASCADE")
     op.execute("DROP TABLE IF EXISTS classes CASCADE")

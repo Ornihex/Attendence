@@ -219,7 +219,6 @@ def test_ui_attendance_validation_errors(seeded_teacher):
             f"() => document.getElementById('attendanceEditInfo')?.textContent.includes('класс #{class_id}')"
         )
 
-        # totalStudents - presentCount == 1, but entered absent == 0
         page.fill("#attendanceTotalStudents", "10")
         page.fill("#attendancePresentCount", "9")
         page.click("#attendanceSaveBtn")

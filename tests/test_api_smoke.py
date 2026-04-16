@@ -282,7 +282,6 @@ def test_full_api_smoke(server_process):
     assert export_daily_csv.headers["Content-Type"].startswith("text/csv")
     assert "Date,Class ID,Class Name,Full Name,Reason" in export_daily_csv.content.decode("utf-8-sig")
 
-    # Promote teacher to admin.
     _request(
         "PATCH",
         f"/users/{teacher_id}/role",
@@ -299,7 +298,6 @@ def test_full_api_smoke(server_process):
     )
     promoted_admin_headers = {"Authorization": f"Bearer {promoted_admin_login.json()['accessToken']}"}
 
-    # Admin can change own credentials.
     new_promoted_password = "pass123456"
     _request(
         "PATCH",
@@ -315,7 +313,6 @@ def test_full_api_smoke(server_process):
         json={"login": teacher_login, "password": new_promoted_password},
     )
 
-    # Appointed admin cannot change role of admin who appointed them.
     _request(
         "PATCH",
         f"/users/{admin_id}/role",

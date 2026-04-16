@@ -491,9 +491,7 @@ const exportStatsFile = async (format = "xlsx") => {
     try {
       const errorPayload = await response.json();
       message = errorPayload.message || message;
-    } catch {
-      // no-op
-    }
+    } catch {}
     throw new Error(message);
   }
 

@@ -190,7 +190,6 @@ def login(credentials: LoginRequest):
         try:
             password_ok = bcrypt.checkpw(credentials.password.encode("utf-8"), user.password.encode("utf-8"))
         except ValueError:
-            # Hash in DB has invalid format; return auth error instead of 500.
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
         if not password_ok:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
@@ -289,7 +288,6 @@ def update_user_role(id: int, request: Request, payload: UpdateRoleRequest):
         if not target:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-        # Appointed admin cannot change role of the admin who appointed them.
         if actor.promoted_by == target.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
@@ -424,7 +422,6 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
                 detail="Absent count must match totalStudents - presentCount",
             )
 
-        # Replace previous absences for date/class.
         s.query(AttendanceBase).filter(
             and_(AttendanceBase.date == date, AttendanceBase.class_id == payload.class_id)
         ).delete()

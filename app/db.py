@@ -19,7 +19,7 @@ class RoleEnum(str, enum.Enum):
 
 
 class AttendanceStatusEnum(str, enum.Enum):
-    # "present" is kept for backward DB enum compatibility.
+
     present = "present"
     excused = "excused"
     unexcused = "unexcused"
@@ -47,7 +47,6 @@ class ClassBase(Base):
     
 
 class StudentBase(Base):
-    # Legacy table; no longer used by active attendance workflows.
     __tablename__ = "students"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -119,6 +118,4 @@ def seed_default_admin() -> None:
             s.add(user)
             s.commit()
     except (OperationalError, ProgrammingError):
-        # Tables may not exist yet before Alembic migration.
         return
-
