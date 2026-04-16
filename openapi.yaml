@@ -721,3 +721,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /statistics/daily/export/csv:
+    get:
+      tags: [Statistics]
+      summary: Экспорт статистики отсутствующих за дату в CSV
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: classId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: CSV-файл со статистикой
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '403':
+          description: Нет прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Класс не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

@@ -1,5 +1,7 @@
 from datetime import date, datetime, timedelta
+import csv
 from io import BytesIO
+from io import StringIO
 
 import bcrypt
 import jwt
@@ -532,6 +534,44 @@ def export_daily_statistics_excel(date: date, request: Request, classId: int | N
     return Response(
         content=output.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/statistics/daily/export/csv")
+def export_daily_statistics_csv(date: date, request: Request, classId: int | None = None):
+    token_payload = _get_token_payload(request)
+    with session() as s:
+        blocks = _resolve_daily_stats_blocks(s, token_payload, date, classId)
+
+    csv_buffer = StringIO()
+    writer = csv.writer(csv_buffer)
+    writer.writerow(["Date", "Class ID", "Class Name", "Full Name", "Reason"])
+
+    has_absences = False
+    for block in blocks:
+        for item in block["absent"]:
+            writer.writerow([block["date"], block["classId"], block["className"], item["fullName"], item["reason"]])
+            has_absences = True
+
+    if not has_absences:
+        writer.writerow([date.isoformat(), "-", "-", "No absences", "-"])
+
+    writer.writerow([])
+    writer.writerow(["Summary"])
+    writer.writerow(["Date", "Class ID", "Class Name", "Total absent"])
+    total_absent_all = 0
+    for block in blocks:
+        writer.writerow([block["date"], block["classId"], block["className"], block["totalAbsent"]])
+        total_absent_all += block["totalAbsent"]
+    writer.writerow([date.isoformat(), "-", "TOTAL", total_absent_all])
+
+    class_suffix = f"_class_{classId}" if classId is not None else "_all_classes"
+    filename = f"attendance_statistics_{date.isoformat()}{class_suffix}.csv"
+
+    return Response(
+        content=csv_buffer.getvalue().encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

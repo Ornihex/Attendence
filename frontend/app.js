@@ -471,7 +471,7 @@ const loadStats = async () => {
   container.innerHTML = renderDailyStats(data);
 };
 
-const exportStatsToExcel = async () => {
+const exportStatsFile = async (format = "xlsx") => {
   const selectedDate = el("statsDate").value;
   if (!selectedDate) {
     throw new Error("Укажите дату для экспорта");
@@ -481,10 +481,11 @@ const exportStatsToExcel = async () => {
   const query = allClasses
     ? `?date=${selectedDate}`
     : `?date=${selectedDate}${classIdValue ? `&classId=${classIdValue}` : ""}`;
+  const endpoint = format === "csv" ? "/statistics/daily/export/csv" : "/statistics/daily/export";
 
   const headers = {};
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
-  const response = await fetch(`${state.apiBase}/statistics/daily/export${query}`, { headers });
+  const response = await fetch(`${state.apiBase}${endpoint}${query}`, { headers });
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
     try {
@@ -499,7 +500,8 @@ const exportStatsToExcel = async () => {
   const blob = await response.blob();
   const disposition = response.headers.get("content-disposition") || "";
   const fileNameMatch = disposition.match(/filename=\"?([^\";]+)\"?/i);
-  const fileName = fileNameMatch ? fileNameMatch[1] : `attendance_statistics_${selectedDate}.xlsx`;
+  const extension = format === "csv" ? "csv" : "xlsx";
+  const fileName = fileNameMatch ? fileNameMatch[1] : `attendance_statistics_${selectedDate}.${extension}`;
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -820,8 +822,17 @@ const bindEvents = () => {
 
   el("exportStatsBtn")?.addEventListener("click", async () => {
     try {
-      await exportStatsToExcel();
+      await exportStatsFile("xlsx");
       toast("Excel файл со статистикой скачан");
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+
+  el("exportStatsCsvBtn")?.addEventListener("click", async () => {
+    try {
+      await exportStatsFile("csv");
+      toast("CSV файл со статистикой скачан");
     } catch (err) {
       toast(err.message, true);
     }

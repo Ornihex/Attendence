@@ -273,6 +273,14 @@ def test_full_api_smoke(server_process):
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
     assert export_daily.content[:2] == b"PK", "XLSX payload must be a zip-based file"
+    export_daily_csv = _request(
+        "GET",
+        f"/statistics/daily/export/csv?date={today}",
+        200,
+        headers=admin_headers,
+    )
+    assert export_daily_csv.headers["Content-Type"].startswith("text/csv")
+    assert "Date,Class ID,Class Name,Full Name,Reason" in export_daily_csv.content.decode("utf-8-sig")
 
     # Promote teacher to admin.
     _request(
