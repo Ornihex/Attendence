@@ -35,6 +35,7 @@ from utils.jwt import RANDOM_SECRET, create_jwt
 
 router = APIRouter()
 session = sessionmaker(engine)
+HISTORY_RETENTION_DAYS = 7
 
 
 def _normalize_absent_name(value: str) -> str:
@@ -157,6 +158,12 @@ def _daily_stats_for_class(s, class_id: int, target_date: date) -> dict:
         "totalAbsent": len(absent_list),
         "absent": absent_list,
     }
+
+
+def _cleanup_old_history(s) -> None:
+    cutoff_date = datetime.now().date() - timedelta(days=HISTORY_RETENTION_DAYS - 1)
+    s.query(AttendanceBase).filter(AttendanceBase.date < cutoff_date).delete()
+    s.query(AttendanceFillBase).filter(AttendanceFillBase.date < cutoff_date).delete()
 
 
 def _resolve_daily_stats_blocks(s, token_payload: dict, target_date: date, class_id: int | None) -> list[dict]:
@@ -366,6 +373,8 @@ def delete_class(id: int, request: Request):
 def get_attendance(date: date, request: Request, classId: int | None = None):
     token_payload = _get_token_payload(request)
     with session() as s:
+        _cleanup_old_history(s)
+        s.commit()
         if classId is None and token_payload["role"] == RoleEnum.admin.value:
             class_rows = s.query(ClassBase).order_by(ClassBase.id.asc()).all()
             return [_attendance_for_class(s, date, row.id) for row in class_rows]
@@ -383,6 +392,8 @@ def get_attendance(date: date, request: Request, classId: int | None = None):
 def put_attendance(date: date, request: Request, payload: AttendanceRequest):
     token_payload = _get_token_payload(request)
     with session() as s:
+        _cleanup_old_history(s)
+        s.commit()
         class_row = s.query(ClassBase).filter(ClassBase.id == payload.class_id).first()
         if not class_row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
@@ -472,6 +483,8 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
 def get_daily_statistics(date: date, request: Request, classId: int | None = None):
     token_payload = _get_token_payload(request)
     with session() as s:
+        _cleanup_old_history(s)
+        s.commit()
         blocks = _resolve_daily_stats_blocks(s, token_payload, date, classId)
         if classId is None:
             return blocks
@@ -482,6 +495,8 @@ def get_daily_statistics(date: date, request: Request, classId: int | None = Non
 def export_daily_statistics_excel(date: date, request: Request, classId: int | None = None):
     token_payload = _get_token_payload(request)
     with session() as s:
+        _cleanup_old_history(s)
+        s.commit()
         blocks = _resolve_daily_stats_blocks(s, token_payload, date, classId)
 
     workbook = Workbook()
@@ -539,6 +554,8 @@ def export_daily_statistics_excel(date: date, request: Request, classId: int | N
 def export_daily_statistics_csv(date: date, request: Request, classId: int | None = None):
     token_payload = _get_token_payload(request)
     with session() as s:
+        _cleanup_old_history(s)
+        s.commit()
         blocks = _resolve_daily_stats_blocks(s, token_payload, date, classId)
 
     csv_buffer = StringIO()
@@ -577,6 +594,8 @@ def export_daily_statistics_csv(date: date, request: Request, classId: int | Non
 def get_unfilled_classes(date: date, request: Request):
     token_payload = _get_token_payload(request)
     with session() as s:
+        _cleanup_old_history(s)
+        s.commit()
         if token_payload["role"] == RoleEnum.admin.value:
             class_rows = s.query(ClassBase).order_by(ClassBase.id.asc()).all()
         else:
