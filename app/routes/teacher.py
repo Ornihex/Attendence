@@ -390,15 +390,15 @@ def create_class(request: Request, payload: CreateClassRequest):
         hashed_password = bcrypt.hashpw(payload.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
         class_user = UserBase(login=class_login, password=hashed_password, role=RoleEnum.teacher)
         class_row = ClassBase(name=class_login, teacher_id=None)
-        s.add(class_user)
-        s.flush()
-        class_row.teacher_id = class_user.id
-        s.add(class_row)
         try:
+            s.add(class_user)
+            s.flush()
+            class_row.teacher_id = class_user.id
+            s.add(class_row)
             s.commit()
         except IntegrityError:
             s.rollback()
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Class name or login already exists")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Класс с таким именем уже существует")
         return {"message": "Class created"}
 
 
