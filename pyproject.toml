@@ -3,15 +3,15 @@ name = "attendence"
 version = "1.0"
 requires-python = ">=3.10"
 dependencies = [
-    'fastapi[all]'
-    'bcrypt'
-    'sqlalchemy'
-    'alembic'
-    'psycopg2-binary'
-    'pyjwt'
-    'pydantic[email]'
-    'pytest'
-    'requests'
+    'fastapi[all]',
+    'bcrypt',
+    'sqlalchemy',
+    'alembic',
+    'psycopg2-binary',
+    'pyjwt',
+    'pydantic[email]',
+    'pytest',
+    'requests',
     'openpyxl'
 ]
 [project.scripts]
