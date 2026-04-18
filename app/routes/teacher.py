@@ -527,29 +527,52 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
                 detail="Absent count must match totalStudents - presentCount",
             )
 
-        s.query(AttendanceBase).filter(
-            and_(AttendanceBase.date == date, AttendanceBase.class_id == resolved_class_id)
-        ).delete()
+        current_absent = (
+            s.query(AttendanceBase)
+            .filter(and_(AttendanceBase.date == date, AttendanceBase.class_id == resolved_class_id))
+            .all()
+        )
+        current_unexcused = {row.absent_name for row in current_absent if row.status == AttendanceStatusEnum.unexcused}
+        current_excused = {row.absent_name: row for row in current_absent if row.status == AttendanceStatusEnum.excused}
 
+        new_unexcused = set(absent_unexcused)
+        new_excused_names = set(item["fullName"] for item in absent_excused)
+
+        # Add new unexcused
         for name in absent_unexcused:
-            s.add(
-                AttendanceBase(
-                    date=date,
-                    class_id=resolved_class_id,
-                    absent_name=name,
-                    status=AttendanceStatusEnum.unexcused,
+            if name not in current_unexcused:
+                s.add(
+                    AttendanceBase(
+                        date=date,
+                        class_id=resolved_class_id,
+                        absent_name=name,
+                        status=AttendanceStatusEnum.unexcused,
+                    )
                 )
-            )
+
+        # Update or add excused
         for item in absent_excused:
-            s.add(
-                AttendanceBase(
-                    date=date,
-                    class_id=resolved_class_id,
-                    absent_name=item["fullName"],
-                    status=AttendanceStatusEnum.excused,
-                    reason=item["reason"],
+            name = item["fullName"]
+            if name in current_excused:
+                current_excused[name].reason = item["reason"]
+            else:
+                s.add(
+                    AttendanceBase(
+                        date=date,
+                        class_id=resolved_class_id,
+                        absent_name=name,
+                        status=AttendanceStatusEnum.excused,
+                        reason=item["reason"],
+                    )
                 )
-            )
+
+        to_delete = [
+            row for row in current_absent
+            if (row.status == AttendanceStatusEnum.unexcused and row.absent_name not in new_unexcused) or
+               (row.status == AttendanceStatusEnum.excused and row.absent_name not in new_excused_names)
+        ]
+        for row in to_delete:
+            s.delete(row)
 
         existing_fill = (
             s.query(AttendanceFillBase)

@@ -66,7 +66,10 @@ class AttendanceBase(Base):
     absent_name: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[AttendanceStatusEnum] = mapped_column(Enum(AttendanceStatusEnum), nullable=False)
     reason: Mapped[str | None] = mapped_column(String, nullable=True)
-    __table_args__ = (Index("ix_attendance_class_date", "class_id", "date"),)
+    __table_args__ = (
+        UniqueConstraint("date", "class_id", "absent_name", "status", name="uq_attendance"),
+        Index("ix_attendance_class_date", "class_id", "date"),
+    )
 
 
 class AttendanceFillBase(Base):
