@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+from collections import defaultdict
 import csv
 from io import BytesIO
 from io import StringIO
@@ -25,9 +26,8 @@ from db import (
 from models import (
     AttendanceRequest,
     CreateClassRequest,
-    CreateTeacherRequest,
     LoginRequest,
-    UpdateClassTeacherRequest,
+    UpdateClassCredentialsRequest,
     UpdateCredentialsRequest,
     UpdateRoleRequest,
 )
@@ -126,20 +126,8 @@ def _attendance_for_class(s, current_date: date, class_id: int) -> dict:
     }
 
 
-def _daily_stats_for_class(s, class_id: int, target_date: date) -> dict:
-    class_row = s.query(ClassBase).filter(ClassBase.id == class_id).first()
-    if not class_row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
-    absent_rows = (
-        s.query(AttendanceBase)
-        .filter(
-            and_(
-                AttendanceBase.class_id == class_id,
-                AttendanceBase.date == target_date,
-            )
-        )
-        .all()
-    )
+def _daily_stats_for_class(class_row: ClassBase, absent_rows: list[AttendanceBase]) -> dict:
+    class_id = class_row.id
     absent_list = []
     for row in absent_rows:
         reason = row.reason or "Неуважительная причина"
@@ -152,12 +140,59 @@ def _daily_stats_for_class(s, class_id: int, target_date: date) -> dict:
             }
         )
     return {
-        "date": target_date.isoformat(),
+        "date": absent_rows[0].date.isoformat() if absent_rows else datetime.now().date().isoformat(),
         "classId": class_id,
         "className": class_row.name,
         "totalAbsent": len(absent_list),
         "absent": absent_list,
     }
+
+
+def _attendance_for_classes(s, current_date: date, class_rows: list[ClassBase]) -> list[dict]:
+    if not class_rows:
+        return []
+    class_ids = [row.id for row in class_rows]
+    attendance_rows = (
+        s.query(AttendanceBase)
+        .filter(and_(AttendanceBase.date == current_date, AttendanceBase.class_id.in_(class_ids)))
+        .all()
+    )
+    fill_rows = (
+        s.query(AttendanceFillBase)
+        .filter(and_(AttendanceFillBase.date == current_date, AttendanceFillBase.class_id.in_(class_ids)))
+        .all()
+    )
+    fills_by_class = {row.class_id: row for row in fill_rows}
+    attendance_by_class = defaultdict(list)
+    for row in attendance_rows:
+        attendance_by_class[row.class_id].append(row)
+
+    result = []
+    for class_row in class_rows:
+        rows = attendance_by_class.get(class_row.id, [])
+        fill_row = fills_by_class.get(class_row.id)
+        is_filled = fill_row is not None
+        total_students = fill_row.total_students if fill_row else 0
+        present_count = fill_row.present_count if fill_row else 0
+        unexcused = []
+        excused = []
+        for row in rows:
+            if row.status == AttendanceStatusEnum.unexcused:
+                unexcused.append({"fullName": row.absent_name})
+            elif row.status == AttendanceStatusEnum.excused:
+                excused.append({"fullName": row.absent_name, "reason": row.reason or ""})
+        result.append(
+            {
+                "date": current_date.isoformat(),
+                "classId": class_row.id,
+                "isFilled": is_filled,
+                "totalStudents": total_students,
+                "presentCount": present_count,
+                "absentUnexcused": unexcused,
+                "absentExcused": excused,
+            }
+        )
+    return result
 
 
 def _cleanup_old_history(s) -> None:
@@ -177,7 +212,28 @@ def _resolve_daily_stats_blocks(s, token_payload: dict, target_date: date, class
                 .order_by(ClassBase.id.asc())
                 .all()
             )
-        return [_daily_stats_for_class(s, row.id, target_date) for row in class_rows]
+        if not class_rows:
+            return []
+        class_ids = [row.id for row in class_rows]
+        absent_rows = (
+            s.query(AttendanceBase)
+            .filter(
+                and_(
+                    AttendanceBase.date == target_date,
+                    AttendanceBase.class_id.in_(class_ids),
+                )
+            )
+            .all()
+        )
+        grouped_absent = defaultdict(list)
+        for row in absent_rows:
+            grouped_absent[row.class_id].append(row)
+        blocks = []
+        for row in class_rows:
+            block = _daily_stats_for_class(row, grouped_absent.get(row.id, []))
+            block["date"] = target_date.isoformat()
+            blocks.append(block)
+        return blocks
 
     resolved_class_id = _resolve_class_for_user(token_payload, class_id)
     class_row = s.query(ClassBase).filter(ClassBase.id == resolved_class_id).first()
@@ -185,7 +241,19 @@ def _resolve_daily_stats_blocks(s, token_payload: dict, target_date: date, class
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
     if token_payload["role"] == RoleEnum.teacher.value and class_row.teacher_id != int(token_payload["sub"]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    return [_daily_stats_for_class(s, resolved_class_id, target_date)]
+    absent_rows = (
+        s.query(AttendanceBase)
+        .filter(
+            and_(
+                AttendanceBase.class_id == resolved_class_id,
+                AttendanceBase.date == target_date,
+            )
+        )
+        .all()
+    )
+    block = _daily_stats_for_class(class_row, absent_rows)
+    block["date"] = target_date.isoformat()
+    return [block]
 
 
 @router.post("/auth/login")
@@ -225,21 +293,11 @@ def get_users(request: Request):
         ]
 
 
-@router.post("/users", status_code=status.HTTP_201_CREATED)
-def register_teacher(request: Request, payload: CreateTeacherRequest):
+@router.post("/users")
+def register_teacher(request: Request):
     token_payload = _get_token_payload(request)
     _require_role(token_payload, {RoleEnum.admin.value})
-    with session() as s:
-        hashed_password = bcrypt.hashpw(payload.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-        teacher = UserBase(login=payload.login, password=hashed_password, role=RoleEnum.teacher)
-        s.add(teacher)
-        try:
-            s.commit()
-        except IntegrityError:
-            s.rollback()
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Login already exists")
-        s.refresh(teacher)
-        return {"id": teacher.id, "login": teacher.login, "role": _role_value(teacher.role), "classId": None}
+    raise HTTPException(status_code=status.HTTP_410_GONE, detail="Teacher registration is disabled")
 
 
 @router.patch("/users/{id}/credentials")
@@ -324,32 +382,58 @@ def create_class(request: Request, payload: CreateClassRequest):
     token_payload = _get_token_payload(request)
     _require_role(token_payload, {RoleEnum.admin.value})
     with session() as s:
-        teacher = s.query(UserBase).filter(and_(UserBase.id == payload.teacher_id, UserBase.role == RoleEnum.teacher)).first()
-        if not teacher:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found")
-        class_row = ClassBase(name=payload.name, teacher_id=payload.teacher_id)
+        class_login = payload.name.strip()
+        if not class_login:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Class name is required")
+        if not payload.password:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password is required")
+        hashed_password = bcrypt.hashpw(payload.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        class_user = UserBase(login=class_login, password=hashed_password, role=RoleEnum.teacher)
+        class_row = ClassBase(name=class_login, teacher_id=None)
+        s.add(class_user)
+        s.flush()
+        class_row.teacher_id = class_user.id
         s.add(class_row)
         try:
             s.commit()
         except IntegrityError:
             s.rollback()
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Class name already exists")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Class name or login already exists")
         return {"message": "Class created"}
 
 
-@router.patch("/classes/{id}/teacher")
-def reassign_class_teacher(id: int, request: Request, payload: UpdateClassTeacherRequest):
+@router.patch("/classes/{id}/credentials")
+def update_class_credentials(id: int, request: Request, payload: UpdateClassCredentialsRequest):
     token_payload = _get_token_payload(request)
     _require_role(token_payload, {RoleEnum.admin.value})
+    if payload.login is None and payload.password is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No update fields provided")
     with session() as s:
         class_row = s.query(ClassBase).filter(ClassBase.id == id).first()
         if not class_row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
-        teacher = s.query(UserBase).filter(and_(UserBase.id == payload.teacher_id, UserBase.role == RoleEnum.teacher)).first()
-        if not teacher:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found")
-        class_row.teacher_id = payload.teacher_id
-        s.commit()
+        class_user = (
+            s.query(UserBase)
+            .filter(and_(UserBase.id == class_row.teacher_id, UserBase.role == RoleEnum.teacher))
+            .first()
+        )
+        if not class_user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class account not found")
+        if payload.login is not None:
+            new_login = payload.login.strip()
+            if not new_login:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Login cannot be empty")
+            class_user.login = new_login
+            class_row.name = new_login
+        if payload.password is not None:
+            if not payload.password:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password cannot be empty")
+            class_user.password = bcrypt.hashpw(payload.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        try:
+            s.commit()
+        except IntegrityError:
+            s.rollback()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Class name or login already exists")
         return {"message": "Updated"}
 
 
@@ -361,10 +445,19 @@ def delete_class(id: int, request: Request):
         class_row = s.query(ClassBase).filter(ClassBase.id == id).first()
         if not class_row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
+        class_user_id = class_row.teacher_id
         s.query(AttendanceBase).filter(AttendanceBase.class_id == id).delete()
         s.query(AttendanceFillBase).filter(AttendanceFillBase.class_id == id).delete()
         s.query(StudentBase).filter(StudentBase.class_id == id).delete()
         s.delete(class_row)
+        if class_user_id is not None:
+            class_user = (
+                s.query(UserBase)
+                .filter(and_(UserBase.id == class_user_id, UserBase.role == RoleEnum.teacher))
+                .first()
+            )
+            if class_user:
+                s.delete(class_user)
         s.commit()
         return {"message": "Deleted"}
 
@@ -377,7 +470,7 @@ def get_attendance(date: date, request: Request, classId: int | None = None):
         s.commit()
         if classId is None and token_payload["role"] == RoleEnum.admin.value:
             class_rows = s.query(ClassBase).order_by(ClassBase.id.asc()).all()
-            return [_attendance_for_class(s, date, row.id) for row in class_rows]
+            return _attendance_for_classes(s, date, class_rows)
 
         resolved_class_id = _resolve_class_for_user(token_payload, classId)
         class_row = s.query(ClassBase).filter(ClassBase.id == resolved_class_id).first()
@@ -394,7 +487,8 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
     with session() as s:
         _cleanup_old_history(s)
         s.commit()
-        class_row = s.query(ClassBase).filter(ClassBase.id == payload.class_id).first()
+        resolved_class_id = _resolve_class_for_user(token_payload, payload.class_id)
+        class_row = s.query(ClassBase).filter(ClassBase.id == resolved_class_id).first()
         if not class_row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
         if token_payload["role"] == RoleEnum.teacher.value and class_row.teacher_id != int(token_payload["sub"]):
@@ -434,14 +528,14 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
             )
 
         s.query(AttendanceBase).filter(
-            and_(AttendanceBase.date == date, AttendanceBase.class_id == payload.class_id)
+            and_(AttendanceBase.date == date, AttendanceBase.class_id == resolved_class_id)
         ).delete()
 
         for name in absent_unexcused:
             s.add(
                 AttendanceBase(
                     date=date,
-                    class_id=payload.class_id,
+                    class_id=resolved_class_id,
                     absent_name=name,
                     status=AttendanceStatusEnum.unexcused,
                 )
@@ -450,7 +544,7 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
             s.add(
                 AttendanceBase(
                     date=date,
-                    class_id=payload.class_id,
+                    class_id=resolved_class_id,
                     absent_name=item["fullName"],
                     status=AttendanceStatusEnum.excused,
                     reason=item["reason"],
@@ -459,14 +553,14 @@ def put_attendance(date: date, request: Request, payload: AttendanceRequest):
 
         existing_fill = (
             s.query(AttendanceFillBase)
-            .filter(and_(AttendanceFillBase.date == date, AttendanceFillBase.class_id == payload.class_id))
+            .filter(and_(AttendanceFillBase.date == date, AttendanceFillBase.class_id == resolved_class_id))
             .first()
         )
         if not existing_fill:
             s.add(
                 AttendanceFillBase(
                     date=date,
-                    class_id=payload.class_id,
+                    class_id=resolved_class_id,
                     total_students=payload.total_students,
                     present_count=payload.present_count,
                 )

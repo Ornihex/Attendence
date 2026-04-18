@@ -15,18 +15,14 @@ class UpdateRoleRequest(BaseModel):
     role: str
 
 
-class CreateTeacherRequest(BaseModel):
-    login: str
+class CreateClassRequest(BaseModel):
+    name: str
     password: str
 
 
-class CreateClassRequest(BaseModel):
-    name: str
-    teacher_id: int = Field(alias="teacherId")
-
-
-class UpdateClassTeacherRequest(BaseModel):
-    teacher_id: int = Field(alias="teacherId")
+class UpdateClassCredentialsRequest(BaseModel):
+    login: str | None = None
+    password: str | None = None
 
 
 class ExcusedAbsenceRequest(BaseModel):
@@ -35,7 +31,7 @@ class ExcusedAbsenceRequest(BaseModel):
 
 
 class AttendanceRequest(BaseModel):
-    class_id: int = Field(alias="classId")
+    class_id: int | None = Field(default=None, alias="classId")
     total_students: int = Field(alias="totalStudents")
     present_count: int = Field(alias="presentCount")
     absent_unexcused: list[str] = Field(default_factory=list, alias="absentUnexcused")

@@ -62,10 +62,10 @@ def _request(method: str, path: str, expected_status: int, **kwargs):
 
 def test_full_api_smoke(server_process):
     ts = int(time.time())
-    teacher_login = f"teacher_{ts}"
-    teacher_password = "pass1234"
     class_name = f"Class_{ts}"
+    class_password = "pass1234"
     unfilled_class_name = f"Class_unfilled_{ts}"
+    unfilled_class_password = "pass5678"
 
     login_admin = _request(
         "POST",
@@ -77,58 +77,24 @@ def test_full_api_smoke(server_process):
     admin_token = login_admin.json()["accessToken"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
 
-    register_teacher = _request(
-        "POST",
-        "/users",
-        201,
-        headers=admin_headers,
-        json={"login": teacher_login, "password": teacher_password},
-    )
-    teacher_id = register_teacher.json()["id"]
-    second_teacher_login = f"teacher_second_{ts}"
-    second_teacher = _request(
-        "POST",
-        "/users",
-        201,
-        headers=admin_headers,
-        json={"login": second_teacher_login, "password": teacher_password},
-    )
-    second_teacher_id = second_teacher.json()["id"]
+    _request("POST", "/users", 410, headers=admin_headers)
 
     users_list = _request("GET", "/users", 200, headers=admin_headers).json()
     assert any("promotedBy" in item for item in users_list), "UserResponse must include promotedBy"
 
-    updated_teacher_password = "pass12345"
-    _request(
-        "PATCH",
-        f"/users/{teacher_id}/credentials",
-        200,
-        headers=admin_headers,
-        json={"password": updated_teacher_password},
-    )
-
-    login_teacher = _request(
-        "POST",
-        "/auth/login",
-        200,
-        json={"login": teacher_login, "password": updated_teacher_password},
-    )
-    teacher_token = login_teacher.json()["accessToken"]
-    teacher_headers = {"Authorization": f"Bearer {teacher_token}"}
-
     _request(
         "POST",
         "/classes",
         201,
         headers=admin_headers,
-        json={"name": class_name, "teacherId": teacher_id},
+        json={"name": class_name, "password": class_password},
     )
     _request(
         "POST",
         "/classes",
         201,
         headers=admin_headers,
-        json={"name": unfilled_class_name, "teacherId": teacher_id},
+        json={"name": unfilled_class_name, "password": unfilled_class_password},
     )
 
     classes_admin = _request("GET", "/classes", 200, headers=admin_headers)
@@ -136,21 +102,34 @@ def test_full_api_smoke(server_process):
     unfilled_class_id = next((item["id"] for item in classes_admin.json() if item["name"] == unfilled_class_name), None)
     assert class_id is not None, "Created class not found in GET /classes response"
     assert unfilled_class_id is not None, "Second class not found in GET /classes response"
+
+    users_after_create = _request("GET", "/users", 200, headers=admin_headers).json()
+    class_user_id = next((u["id"] for u in users_after_create if u.get("classId") == class_id), None)
+    assert class_user_id is not None, "Class account user must exist"
+
+    updated_class_login = f"{class_name}_renamed"
+    updated_class_password = "pass12345"
     _request(
         "PATCH",
-        f"/classes/{unfilled_class_id}/teacher",
+        f"/classes/{class_id}/credentials",
         200,
         headers=admin_headers,
-        json={"teacherId": second_teacher_id},
+        json={"login": updated_class_login, "password": updated_class_password},
     )
-    classes_after_reassign = _request("GET", "/classes", 200, headers=admin_headers).json()
-    reassigned = next(item for item in classes_after_reassign if item["id"] == unfilled_class_id)
-    assert reassigned["teacherId"] == second_teacher_id
 
     _request("DELETE", f"/classes/{unfilled_class_id}", 200, headers=admin_headers)
     classes_after_delete = _request("GET", "/classes", 200, headers=admin_headers).json()
     assert not any(item["id"] == unfilled_class_id for item in classes_after_delete)
     unfilled_class_id = None
+
+    login_teacher = _request(
+        "POST",
+        "/auth/login",
+        200,
+        json={"login": updated_class_login, "password": updated_class_password},
+    )
+    teacher_token = login_teacher.json()["accessToken"]
+    teacher_headers = {"Authorization": f"Bearer {teacher_token}"}
 
     _request("GET", "/classes", 200, headers=teacher_headers)
 
@@ -171,7 +150,6 @@ def test_full_api_smoke(server_process):
         200,
         headers=teacher_headers,
         json={
-            "classId": class_id,
             "totalStudents": 25,
             "presentCount": 23,
             "absentUnexcused": ["Ivanov"],
@@ -191,7 +169,6 @@ def test_full_api_smoke(server_process):
         400,
         headers=teacher_headers,
         json={
-            "classId": class_id,
             "totalStudents": 25,
             "presentCount": 24,
             "absentUnexcused": ["Sidorov", "Smirnov"],
@@ -204,7 +181,6 @@ def test_full_api_smoke(server_process):
         400,
         headers=teacher_headers,
         json={
-            "classId": class_id,
             "totalStudents": 25,
             "presentCount": 23,
             "absentUnexcused": ["Ivanov"],
@@ -217,7 +193,6 @@ def test_full_api_smoke(server_process):
         400,
         headers=teacher_headers,
         json={
-            "classId": class_id,
             "totalStudents": 25,
             "presentCount": 24,
             "absentUnexcused": [],
@@ -284,7 +259,7 @@ def test_full_api_smoke(server_process):
 
     _request(
         "PATCH",
-        f"/users/{teacher_id}/role",
+        f"/users/{class_user_id}/role",
         200,
         headers=admin_headers,
         json={"role": "admin"},
@@ -294,7 +269,7 @@ def test_full_api_smoke(server_process):
         "POST",
         "/auth/login",
         200,
-        json={"login": teacher_login, "password": updated_teacher_password},
+        json={"login": updated_class_login, "password": updated_class_password},
     )
     promoted_admin_headers = {"Authorization": f"Bearer {promoted_admin_login.json()['accessToken']}"}
 
@@ -310,7 +285,7 @@ def test_full_api_smoke(server_process):
         "POST",
         "/auth/login",
         200,
-        json={"login": teacher_login, "password": new_promoted_password},
+        json={"login": updated_class_login, "password": new_promoted_password},
     )
 
     _request(

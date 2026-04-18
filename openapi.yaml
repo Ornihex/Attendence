@@ -85,15 +85,6 @@ components:
         role:
           $ref: '#/components/schemas/Role'
 
-    CreateTeacherRequest:
-      type: object
-      required: [login, password]
-      properties:
-        login:
-          type: string
-        password:
-          type: string
-
     ClassResponse:
       type: object
       properties:
@@ -119,19 +110,20 @@ components:
 
     CreateClassRequest:
       type: object
-      required: [name, teacherId]
+      required: [name, password]
       properties:
         name:
           type: string
-        teacherId:
-          type: integer
+        password:
+          type: string
 
-    UpdateClassTeacherRequest:
+    UpdateClassCredentialsRequest:
       type: object
-      required: [teacherId]
       properties:
-        teacherId:
-          type: integer
+        login:
+          type: string
+        password:
+          type: string
 
     ExcusedAbsence:
       type: object
@@ -181,10 +173,11 @@ components:
 
     AttendanceRequest:
       type: object
-      required: [classId, totalStudents, presentCount]
+      required: [totalStudents, presentCount]
       properties:
         classId:
           type: integer
+          nullable: true
         totalStudents:
           type: integer
         presentCount:
@@ -261,30 +254,12 @@ paths:
   /users:
     post:
       tags: [Users]
-      summary: Зарегистрировать учителя (admin only)
+      summary: Регистрация учителя отключена (admin only)
       security:
         - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTeacherRequest'
       responses:
-        '201':
-          description: Учитель создан
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserResponse'
-        '403':
-          description: Нет прав
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Логин уже занят
+        '410':
+          description: Регистрация учителя отключена
           content:
             application/json:
               schema:
@@ -350,7 +325,7 @@ paths:
   /users/{id}/credentials:
     patch:
       tags: [Users]
-      summary: Изменить логин/пароль учителя (admin only)
+      summary: Изменить логин/пароль пользователя (admin only)
       security:
         - BearerAuth: []
       parameters:
@@ -451,10 +426,11 @@ paths:
 
     post:
       tags: [Classes]
-      summary: Создать класс (admin only)
+      summary: Создать класс и учётную запись класса (admin only)
       security:
         - BearerAuth: []
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -462,23 +438,23 @@ paths:
       responses:
         '201':
           description: Класс создан
-        '404':
-          description: Учитель не найден
+        '400':
+          description: Некорректные имя класса или пароль
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Имя класса занято
+          description: Имя класса или логин заняты
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /classes/{id}/teacher:
+  /classes/{id}/credentials:
     patch:
       tags: [Classes]
-      summary: Переназначить класс другому учителю (admin only)
+      summary: Обновить логин/пароль учётной записи класса (admin only)
       security:
         - BearerAuth: []
       parameters:
@@ -488,11 +464,10 @@ paths:
           schema:
             type: integer
       requestBody:
-        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateClassTeacherRequest'
+              $ref: '#/components/schemas/UpdateClassCredentialsRequest'
       responses:
         '200':
           description: Обновлено
@@ -511,7 +486,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Класс или учитель не найден
+          description: Класс или учётная запись класса не найдены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Имя класса или логин заняты
           content:
             application/json:
               schema:
@@ -571,6 +552,7 @@ paths:
           required: false
           schema:
             type: integer
+          description: Для teacher можно не передавать classId, используется класс учётной записи.
       responses:
         '200':
           description: Посещаемость
@@ -592,29 +574,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
-  /attendance/unfilled-classes:
-    get:
-      tags: [Attendance]
-      summary: Получить классы, по которым не отправлена посещаемость за дату
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: date
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-      responses:
-        '200':
-          description: Классы без отправленной посещаемости
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UnfilledClassResponse'
 
     put:
       tags: [Attendance]
@@ -655,6 +614,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /attendance/unfilled-classes:
+    get:
+      tags: [Attendance]
+      summary: Получить классы, по которым не отправлена посещаемость за дату
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Классы без отправленной посещаемости
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UnfilledClassResponse'
   /statistics/daily:
     get:
       tags: [Statistics]
@@ -760,3 +741,4 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+

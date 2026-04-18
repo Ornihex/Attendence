@@ -71,11 +71,13 @@ def test_openapi_yaml_contains_new_attendance_contract():
     assert "required: [message]" in spec
     assert "/attendance/unfilled-classes:" in spec
     assert "UnfilledClassResponse" in spec
-    assert "/classes/{id}/teacher:" in spec
+    assert "/classes/{id}/credentials:" in spec
     assert "/classes/{id}:" in spec
-    assert "UpdateClassTeacherRequest" in spec
+    assert "UpdateClassCredentialsRequest" in spec
     assert "/statistics/daily/export:" in spec
     assert "/statistics/daily/export/csv:" in spec
+    assert "required: [name, password]" in spec
+    assert "required: [totalStudents, presentCount]" in spec
 
 
 def test_runtime_error_shape_and_attendance_fields(server_process):

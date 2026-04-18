@@ -82,14 +82,12 @@ mkdocs build --strict
 <a id="ru-2"></a>
 ### 2. Возможности
 - Авторизация: `POST /api/v1/auth/login`
-- Управление учителями (admin):
-  - регистрация учителя
-  - изменение credentials учителя
-  - смена роли пользователя
 - Управление классами (admin):
-  - создание класса
-  - перепривязка класса к другому учителю
+  - создание класса и его учётной записи (`класс + пароль`)
+  - изменение логина/пароля выбранного класса
   - удаление класса
+- Управление учётными данными (admin):
+  - изменение собственных credentials администратора
 - Посещаемость:
   - просмотр за дату/класс или по всем классам (admin)
   - сохранение/обновление посещаемости
@@ -213,13 +211,13 @@ Authorization: Bearer <token>
 Ключевые роуты:
 - `POST /api/v1/auth/login`
 - `GET /api/v1/users`
-- `POST /api/v1/users`
+- `POST /api/v1/users` (отключён, возвращает `410`)
 - `PATCH /api/v1/users/{id}/credentials`
 - `PATCH /api/v1/profile/credentials`
 - `PATCH /api/v1/users/{id}/role`
 - `GET /api/v1/classes`
 - `POST /api/v1/classes`
-- `PATCH /api/v1/classes/{id}/teacher`
+- `PATCH /api/v1/classes/{id}/credentials`
 - `DELETE /api/v1/classes/{id}`
 - `GET /api/v1/attendance`
 - `PUT /api/v1/attendance?date=YYYY-MM-DD`
@@ -257,8 +255,8 @@ python -m pytest -q tests/test_api_smoke.py tests/test_ui_e2e_playwright.py test
 
 <a id="ru-11"></a>
 ### 11. Роли и безопасность
-- Админ может повышать/понижать роли пользователей.
-- Назначенный админ не может менять роль админа, который его назначил (`promoted_by` защита).
+- В веб-интерфейсе смена ролей отключена.
+- Управление учётными данными класса выполняется на вкладке `Классы` для выбранного класса.
 - Учитель работает только со своими классами.
 
 <a id="ru-12"></a>
@@ -334,14 +332,12 @@ See architecture details:
 <a id="en-2"></a>
 ### 2. Features
 - Authentication: `POST /api/v1/auth/login`
-- Teacher management (admin):
-  - create teacher
-  - update teacher credentials
-  - change user role
 - Class management (admin):
-  - create class
-  - reassign class to another teacher
+  - create class with class account (`class + password`)
+  - update credentials for selected class
   - delete class
+- Credentials management (admin):
+  - update admin own credentials
 - Attendance:
   - get attendance by date/class or all classes (admin)
   - upsert attendance for class/date
@@ -465,13 +461,13 @@ Authorization: Bearer <token>
 Primary routes:
 - `POST /api/v1/auth/login`
 - `GET /api/v1/users`
-- `POST /api/v1/users`
+- `POST /api/v1/users` (disabled, returns `410`)
 - `PATCH /api/v1/users/{id}/credentials`
 - `PATCH /api/v1/profile/credentials`
 - `PATCH /api/v1/users/{id}/role`
 - `GET /api/v1/classes`
 - `POST /api/v1/classes`
-- `PATCH /api/v1/classes/{id}/teacher`
+- `PATCH /api/v1/classes/{id}/credentials`
 - `DELETE /api/v1/classes/{id}`
 - `GET /api/v1/attendance`
 - `PUT /api/v1/attendance?date=YYYY-MM-DD`
@@ -509,8 +505,8 @@ python -m pytest -q tests/test_api_smoke.py tests/test_ui_e2e_playwright.py test
 
 <a id="en-11"></a>
 ### 11. Role and Security Rules
-- Admin can promote/demote users.
-- If an admin was appointed by another admin, they cannot change role of the admin who appointed them (`promoted_by` protection).
+- Role change is disabled in the web UI.
+- Class credentials are managed from the `Classes` tab for the currently selected class.
 - Teachers can work only with classes assigned to them.
 
 <a id="en-12"></a>

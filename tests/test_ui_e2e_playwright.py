@@ -72,9 +72,8 @@ def server_process():
 @pytest.fixture()
 def seeded_teacher(server_process):
     ts = int(time.time())
-    teacher_login = f"ui_teacher_{ts}"
-    teacher_password = "pass1234"
     class_name = f"UI_Class_{ts}"
+    class_password = "pass1234"
 
     login_admin = _api_request(
         "POST",
@@ -85,21 +84,12 @@ def seeded_teacher(server_process):
     admin_token = login_admin.json()["accessToken"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
 
-    register_teacher = _api_request(
-        "POST",
-        "/users",
-        201,
-        headers=admin_headers,
-        json={"login": teacher_login, "password": teacher_password},
-    )
-    teacher_id = register_teacher.json()["id"]
-
     _api_request(
         "POST",
         "/classes",
         201,
         headers=admin_headers,
-        json={"name": class_name, "teacherId": teacher_id},
+        json={"name": class_name, "password": class_password},
     )
     classes = _api_request("GET", "/classes", 200, headers=admin_headers).json()
     class_id = next(item["id"] for item in classes if item["name"] == class_name)
@@ -108,14 +98,14 @@ def seeded_teacher(server_process):
         "POST",
         "/auth/login",
         200,
-        json={"login": teacher_login, "password": teacher_password},
+        json={"login": class_name, "password": class_password},
     )
     teacher_token = login_teacher.json()["accessToken"]
     teacher_headers = {"Authorization": f"Bearer {teacher_token}"}
 
     return {
-        "teacher_login": teacher_login,
-        "teacher_password": teacher_password,
+        "teacher_login": class_name,
+        "teacher_password": class_password,
         "class_id": class_id,
         "teacher_headers": teacher_headers,
     }
@@ -143,17 +133,10 @@ def test_ui_bulk_attendance_update(seeded_teacher):
 
         page.fill("#attendanceEditDate", today)
         page.wait_for_function(
-            f"""() => {{
-                const select = document.getElementById('attendanceEditClassId');
-                return !!select && Array.from(select.options).some((o) => o.value === "{class_id}");
-            }}"""
+            f"() => document.getElementById('attendanceEditInfo')?.textContent.includes('класс #{class_id}')"
         )
-        page.select_option("#attendanceEditClassId", str(class_id))
         page.wait_for_function(
             "() => { const b = document.getElementById('attendanceSaveBtn'); return b && !b.disabled; }"
-        )
-        page.wait_for_function(
-            f"() => document.getElementById('attendanceEditInfo')?.textContent.includes('класс #{class_id}')"
         )
         page.fill("#attendanceTotalStudents", "20")
         page.fill("#attendancePresentCount", "18")
@@ -206,17 +189,10 @@ def test_ui_attendance_validation_errors(seeded_teacher):
 
         page.fill("#attendanceEditDate", today)
         page.wait_for_function(
-            f"""() => {{
-                const select = document.getElementById('attendanceEditClassId');
-                return !!select && Array.from(select.options).some((o) => o.value === "{class_id}");
-            }}"""
+            f"() => document.getElementById('attendanceEditInfo')?.textContent.includes('класс #{class_id}')"
         )
-        page.select_option("#attendanceEditClassId", str(class_id))
         page.wait_for_function(
             "() => { const b = document.getElementById('attendanceSaveBtn'); return b && !b.disabled; }"
-        )
-        page.wait_for_function(
-            f"() => document.getElementById('attendanceEditInfo')?.textContent.includes('класс #{class_id}')"
         )
 
         page.fill("#attendanceTotalStudents", "10")
@@ -237,7 +213,7 @@ def test_ui_attendance_validation_errors(seeded_teacher):
     assert verify["isFilled"] is False
 
 
-def test_ui_attendance_save_disabled_without_class(seeded_teacher):
+def test_ui_attendance_save_disabled_without_date(seeded_teacher):
     teacher_login = seeded_teacher["teacher_login"]
     teacher_password = seeded_teacher["teacher_password"]
 
@@ -255,9 +231,8 @@ def test_ui_attendance_save_disabled_without_class(seeded_teacher):
         page.click("button[data-tab='attendanceTab']")
         page.wait_for_selector("#attendanceTab.active")
 
-        page.wait_for_function(
-            "() => document.getElementById('attendanceEditInfo')?.textContent.includes('Выберите класс и дату')"
-        )
+        page.fill("#attendanceEditDate", "")
+        page.wait_for_timeout(300)
         assert page.locator("#attendanceSaveBtn").is_disabled()
 
         browser.close()

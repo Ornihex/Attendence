@@ -76,9 +76,9 @@ const findClassById = (classId) => {
   return state.classes.find((row) => row.id === Number(classId)) || null;
 };
 
-const findTeacherById = (teacherId) => {
-  if (!teacherId) return null;
-  return state.users.find((row) => row.id === Number(teacherId)) || null;
+const findUserById = (userId) => {
+  if (!userId) return null;
+  return state.users.find((row) => row.id === Number(userId)) || null;
 };
 
 const activateTab = (id) => {
@@ -107,36 +107,7 @@ const loadUsers = async () => {
   if (state.role !== "admin") return;
   const users = await request("/users");
   state.users = users;
-  populateTeacherSelects(users);
-  populateRoleUserSelect(users);
   renderSelectedClassMeta();
-};
-
-const populateRoleUserSelect = (users) => {
-  const select = el("roleUserId");
-  const prev = select.value;
-  select.innerHTML = ['<option value="">Выберите пользователя</option>']
-    .concat(users.map((u) => `<option value="${u.id}">#${u.id} - ${u.login} (${u.role})</option>`))
-    .join("");
-  if (prev && users.some((u) => String(u.id) === prev)) {
-    select.value = prev;
-  }
-};
-
-const populateTeacherSelects = (users) => {
-  const teachers = users.filter((u) => u.role === "teacher");
-  const ids = ["classTeacherId", "credTeacherId", "manageClassTeacherId"];
-  ids.forEach((id) => {
-    const select = el(id);
-    if (!select) return;
-    const prev = select.value;
-    select.innerHTML = ['<option value="">Выберите учителя</option>']
-      .concat(teachers.map((t) => `<option value="${t.id}">#${t.id} - ${t.login}</option>`))
-      .join("");
-    if (prev && teachers.some((t) => String(t.id) === prev)) {
-      select.value = prev;
-    }
-  });
 };
 
 const populateAttendanceClassSelect = (classes) => {
@@ -145,17 +116,19 @@ const populateAttendanceClassSelect = (classes) => {
     const select = el(id);
     const previousValue = select.value;
     const options = ['<option value="">Выберите класс</option>'];
-    if (id === "statsClassId") {
+    if (id === "statsClassId" && state.role === "admin") {
       options.push('<option value="__all__">Все классы</option>');
     }
     options.push(...classes.map((c) => `<option value="${c.id}">#${c.id} - ${c.name}</option>`));
     select.innerHTML = options.join("");
     if (previousValue && (previousValue === "__all__" || classes.some((c) => String(c.id) === previousValue))) {
       select.value = previousValue;
-    } else if (id === "statsClassId") {
+    } else if (id === "statsClassId" && state.role === "admin") {
       select.value = "__all__";
     } else if (state.selectedClassId && classes.some((c) => c.id === state.selectedClassId)) {
       select.value = String(state.selectedClassId);
+    } else if (state.role === "teacher" && classes.length > 0) {
+      select.value = String(classes[0].id);
     }
   });
 };
@@ -176,12 +149,16 @@ const populateDashboardClassSelect = (classes) => {
 const loadClasses = async () => {
   const classes = await request("/classes");
   state.classes = classes;
+  if (state.role === "teacher" && classes.length > 0) {
+    state.selectedClassId = classes[0].id;
+  }
   populateDashboardClassSelect(classes);
   populateAttendanceClassSelect(classes);
   renderSelectedClassMeta();
 };
 
 const applySelectedClass = async (classIdValue) => {
+  if (state.role !== "admin") return;
   if (!classIdValue) {
     state.selectedClassId = null;
     renderSelectedClassMeta();
@@ -203,15 +180,11 @@ const renderSelectedClassMeta = () => {
   const classRow = findClassById(state.selectedClassId);
   if (!classRow) {
     meta.textContent = "Выберите класс в списке слева";
-    if (el("manageClassTeacherId")) el("manageClassTeacherId").value = "";
     setClassManagementEnabled(false);
     return;
   }
-  const teacher = findTeacherById(classRow.teacherId);
-  meta.textContent = `Класс: #${classRow.id} ${classRow.name}. Текущий учитель: ${teacher ? `${teacher.login} (#${teacher.id})` : `#${classRow.teacherId}`}`;
-  if (el("manageClassTeacherId")) {
-    el("manageClassTeacherId").value = classRow.teacherId ? String(classRow.teacherId) : "";
-  }
+  const classAccount = findUserById(classRow.teacherId);
+  meta.textContent = `Класс: #${classRow.id} ${classRow.name}. Логин класса: ${classAccount ? `${classAccount.login} (id: ${classAccount.id})` : `id ${classRow.teacherId}`}`;
   setClassManagementEnabled(true);
 };
 
@@ -270,15 +243,17 @@ const setAttendanceSaveEnabled = (enabled) => {
 };
 
 const setClassManagementEnabled = (enabled) => {
-  const select = el("manageClassTeacherId");
   const deleteBtn = el("deleteClassBtn");
-  const reassignBtn = document.querySelector("#reassignClassForm button[type='submit']");
-  if (select) select.disabled = !enabled;
+  const classCredLogin = el("classCredLogin");
+  const classCredPassword = el("classCredPassword");
+  const classCredSubmit = document.querySelector("#updateClassCredentialsForm button[type='submit']");
   if (deleteBtn) deleteBtn.disabled = !enabled;
-  if (reassignBtn) reassignBtn.disabled = !enabled;
+  if (classCredLogin) classCredLogin.disabled = !enabled;
+  if (classCredPassword) classCredPassword.disabled = !enabled;
+  if (classCredSubmit) classCredSubmit.disabled = !enabled;
 };
 
-const resetAttendanceEditor = (statusMessage = "Выберите класс и дату") => {
+const resetAttendanceEditor = (statusMessage = "Выберите дату") => {
   state.attendanceEditClassId = null;
   if (el("attendanceTotalStudents")) el("attendanceTotalStudents").value = 0;
   if (el("attendancePresentCount")) el("attendancePresentCount").value = 0;
@@ -291,8 +266,8 @@ const resetAttendanceEditor = (statusMessage = "Выберите класс и �
 
 const loadAttendance = async () => {
   const dateValue = el("attendanceDate").value;
-  const classIdValue = el("attendanceClassId").value;
-  const allClasses = el("attendanceAllClasses").checked && state.role === "admin";
+  const classIdValue = state.role === "admin" ? el("attendanceClassId").value : "";
+  const allClasses = state.role === "admin" && el("attendanceAllClasses").checked;
   const query = allClasses
     ? `?date=${dateValue}`
     : `?date=${dateValue}${classIdValue ? `&classId=${classIdValue}` : ""}`;
@@ -376,18 +351,21 @@ const renderAttendanceEditor = (block) => {
 const loadAttendanceForEdit = async () => {
   const requestId = ++state.attendanceLoadRequestId;
   const dateValue = el("attendanceEditDate").value;
-  let classIdValue = el("attendanceEditClassId").value;
+  let classIdValue = state.role === "admin" ? el("attendanceEditClassId").value : "";
+  if (!classIdValue && state.role === "teacher" && state.selectedClassId) {
+    classIdValue = String(state.selectedClassId);
+  }
   if (!classIdValue && state.selectedClassId) {
     classIdValue = String(state.selectedClassId);
     el("attendanceEditClassId").value = classIdValue;
   }
-  if (!classIdValue || !dateValue) {
-    resetAttendanceEditor("Выберите класс и дату");
+  if (!dateValue || (state.role === "admin" && !classIdValue)) {
+    resetAttendanceEditor(state.role === "admin" ? "Выберите класс и дату" : "Выберите дату");
     return;
   }
   setAttendanceEditorStatus("Загрузка...");
   setAttendanceSaveEnabled(false);
-  const query = `?date=${dateValue}&classId=${classIdValue}`;
+  const query = classIdValue ? `?date=${dateValue}&classId=${classIdValue}` : `?date=${dateValue}`;
   try {
     const data = await request(`/attendance${query}`);
     if (requestId !== state.attendanceLoadRequestId) return;
@@ -405,9 +383,11 @@ const loadAttendanceForEdit = async () => {
 
 const saveAttendanceEdit = async () => {
   const dateValue = el("attendanceEditDate").value;
-  const classId = Number(state.attendanceEditClassId || el("attendanceEditClassId").value);
-  if (!dateValue || !classId) {
-    throw new Error("Укажите дату и класс");
+  const classIdRaw =
+    state.attendanceEditClassId || (state.role === "admin" ? el("attendanceEditClassId").value : state.selectedClassId);
+  const classId = classIdRaw ? Number(classIdRaw) : null;
+  if (!dateValue || (state.role === "admin" && !classId)) {
+    throw new Error(state.role === "admin" ? "Укажите дату и класс" : "Укажите дату");
   }
   const totalStudents = Number(el("attendanceTotalStudents").value);
   const presentCount = Number(el("attendancePresentCount").value);
@@ -435,7 +415,7 @@ const saveAttendanceEdit = async () => {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      classId,
+      classId: classId || undefined,
       totalStudents,
       presentCount,
       absentUnexcused,
@@ -460,8 +440,8 @@ const renderDailyStats = (statsBlocks) => {
 
 const loadStats = async () => {
   const selectedDate = el("statsDate").value;
-  const classIdValue = el("statsClassId").value;
-  const allClasses = classIdValue === "__all__";
+  const classIdValue = state.role === "admin" ? el("statsClassId").value : "";
+  const allClasses = state.role === "admin" && classIdValue === "__all__";
   const query = allClasses
     ? `?date=${selectedDate}`
     : `?date=${selectedDate}${classIdValue ? `&classId=${classIdValue}` : ""}`;
@@ -476,8 +456,8 @@ const exportStatsFile = async (format = "xlsx") => {
   if (!selectedDate) {
     throw new Error("Укажите дату для экспорта");
   }
-  const classIdValue = el("statsClassId").value;
-  const allClasses = classIdValue === "__all__";
+  const classIdValue = state.role === "admin" ? el("statsClassId").value : "";
+  const allClasses = state.role === "admin" && classIdValue === "__all__";
   const query = allClasses
     ? `?date=${selectedDate}`
     : `?date=${selectedDate}${classIdValue ? `&classId=${classIdValue}` : ""}`;
@@ -526,7 +506,7 @@ const loadUnfilledClasses = async () => {
           `<tr><td>${row.name}</td><td>${row.teacherLogin || "-"}</td><td>${row.teacherId ?? "-"}</td></tr>`
       )
       .join("");
-    container.innerHTML = `<div class="item"><table class="attendance-table"><thead><tr><th>Класс</th><th>Учитель</th><th>teacherId</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    container.innerHTML = `<div class="item"><table class="attendance-table"><thead><tr><th>Класс</th><th>Логин класса</th><th>ID учётной записи</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     return;
   }
   container.innerHTML = `<div class="item"><b>Незаполненные классы:</b><br>${data
@@ -579,9 +559,11 @@ const openAppView = async () => {
   el("appView").classList.remove("hidden");
   el("sessionInfo").textContent = `role: ${state.role}, userId: ${state.userId}`;
   setRoleVisibility();
+  resetAttendanceEditor(state.role === "admin" ? "Выберите класс и дату" : "Выберите дату");
   activateTab(state.role === "admin" ? "classesTab" : "attendanceTab");
   await loadClasses();
   if (state.role === "admin") await loadUsers();
+  if (state.role === "teacher") await loadAttendanceForEdit();
 };
 
 const bindEvents = () => {
@@ -639,39 +621,26 @@ const bindEvents = () => {
     }
   });
 
-  el("createTeacherForm")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      await request("/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          login: el("teacherLogin").value.trim(),
-          password: el("teacherPassword").value,
-        }),
-      });
-      await loadUsers();
-      e.target.reset();
-      toast("Учитель создан");
-    } catch (err) {
-      toast(err.message, true);
-    }
-  });
-
-  el("updateCredentialsForm")?.addEventListener("submit", async (e) => {
+  el("updateClassCredentialsForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
       const payload = {};
-      const login = el("credLogin").value.trim();
-      const password = el("credPassword").value;
+      const classId = Number(state.selectedClassId);
+      if (!classId) throw new Error("Сначала выберите класс");
+      const login = el("classCredLogin").value.trim();
+      const password = el("classCredPassword").value;
       if (login) payload.login = login;
       if (password) payload.password = password;
-      await request(`/users/${el("credTeacherId").value}/credentials`, {
+      await request(`/classes/${classId}/credentials`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       e.target.reset();
+      if (state.selectedClassId === classId && el("dashboardClassSelect")) {
+        el("dashboardClassSelect").value = String(classId);
+      }
+      await loadClasses();
       await loadUsers();
       toast("Учётные данные обновлены");
     } catch (err) {
@@ -700,22 +669,6 @@ const bindEvents = () => {
     }
   });
 
-  el("updateRoleForm")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      await request(`/users/${el("roleUserId").value}/role`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: el("roleValue").value }),
-      });
-      await loadUsers();
-      e.target.reset();
-      toast("Роль обновлена");
-    } catch (err) {
-      toast(err.message, true);
-    }
-  });
-
   el("createClassForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
@@ -724,32 +677,13 @@ const bindEvents = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: el("className").value.trim(),
-          teacherId: Number(el("classTeacherId").value),
+          password: el("classPassword").value,
         }),
       });
       e.target.reset();
       await loadClasses();
-      toast("Класс создан");
-    } catch (err) {
-      toast(err.message, true);
-    }
-  });
-
-  el("reassignClassForm")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      if (state.role !== "admin") throw new Error("Forbidden");
-      if (!state.selectedClassId) throw new Error("Сначала выберите класс");
-      const teacherId = Number(el("manageClassTeacherId").value);
-      if (!teacherId) throw new Error("Выберите учителя");
-      await request(`/classes/${state.selectedClassId}/teacher`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teacherId }),
-      });
-      await loadClasses();
       await loadUsers();
-      toast("Класс переназначен");
+      toast("Класс создан");
     } catch (err) {
       toast(err.message, true);
     }

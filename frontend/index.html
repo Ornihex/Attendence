@@ -53,7 +53,7 @@
           <button class="tab active admin-only" data-tab="classesTab">Классы</button>
           <button class="tab" data-tab="attendanceTab">Посещаемость</button>
           <button class="tab" data-tab="statsTab">Статистика</button>
-          <button class="tab admin-only" data-tab="usersTab">Учителя</button>
+          <button class="tab admin-only" data-tab="usersTab">Управление учётными данными</button>
         </nav>
 
         <section id="classesTab" class="tab-content active admin-only">
@@ -73,26 +73,17 @@
               <h3>Создать класс</h3>
               <form id="createClassForm" class="form-grid">
                 <label>Название класса <input id="className" type="text" required /></label>
-                <label
-                  >Учитель
-                  <select id="classTeacherId" required>
-                    <option value="">Выберите учителя</option>
-                  </select>
-                </label>
+                <label>Пароль класса <input id="classPassword" type="password" required /></label>
                 <button type="submit">Создать</button>
               </form>
             </article>
             <article id="manageClassCard" class="card admin-only">
               <h3>Управление выбранным классом</h3>
               <div id="selectedClassMeta" class="muted">Выберите класс в списке слева</div>
-              <form id="reassignClassForm" class="form-grid">
-                <label
-                  >Новый учитель
-                  <select id="manageClassTeacherId" required>
-                    <option value="">Выберите учителя</option>
-                  </select>
-                </label>
-                <button type="submit">Переназначить класс</button>
+              <form id="updateClassCredentialsForm" class="form-grid">
+                <label>Новый логин класса <input id="classCredLogin" type="text" /></label>
+                <label>Новый пароль класса <input id="classCredPassword" type="password" /></label>
+                <button type="submit">Обновить данные класса</button>
               </form>
               <button id="deleteClassBtn" type="button" class="ghost-btn">Удалить класс</button>
             </article>
@@ -105,7 +96,7 @@
               <h3>Просмотр посещаемости за дату</h3>
               <form id="attendanceLoadForm" class="row-form">
                 <label>Дата <input id="attendanceDate" type="date" required /></label>
-                <label
+                <label class="admin-only"
                   >Класс
                   <select id="attendanceClassId">
                     <option value="">Выберите класс</option>
@@ -124,7 +115,7 @@
               <h3>Заполнить / обновить посещаемость</h3>
               <div id="attendanceEditForm" class="row-form">
                 <label>Дата <input id="attendanceEditDate" type="date" required /></label>
-                <label
+                <label class="admin-only"
                   >Класс
                   <select id="attendanceEditClassId">
                     <option value="">Выберите класс</option>
@@ -163,7 +154,7 @@
             <h3>Статистика отсутствующих за дату</h3>
             <form id="statsForm" class="row-form">
               <label>Дата <input id="statsDate" type="date" required /></label>
-              <label
+              <label class="admin-only"
                 >Класс
                 <select id="statsClassId">
                   <option value="">Выберите класс</option>
@@ -182,56 +173,13 @@
         </section>
 
         <section id="usersTab" class="tab-content admin-only">
-          <div class="grid two-cols">
-            <article class="card">
-              <h3>Регистрация учителя</h3>
-              <form id="createTeacherForm" class="form-grid">
-                <label>Логин <input id="teacherLogin" type="text" required /></label>
-                <label>Пароль <input id="teacherPassword" type="password" required /></label>
-                <button type="submit">Создать</button>
-              </form>
-            </article>
-            <article class="card">
-              <h3>Смена учётных данных</h3>
-              <form id="updateCredentialsForm" class="form-grid">
-                <label
-                  >Учитель
-                  <select id="credTeacherId" required>
-                    <option value="">Выберите учителя</option>
-                  </select>
-                </label>
-                <label>Новый логин <input id="credLogin" type="text" /></label>
-                <label>Новый пароль <input id="credPassword" type="password" /></label>
-                <button type="submit">Обновить</button>
-              </form>
-            </article>
-          </div>
-          <div class="grid two-cols">
+          <div class="grid">
             <article class="card">
               <h3>Собственные учётные данные</h3>
               <form id="selfCredentialsForm" class="form-grid">
                 <label>Новый логин <input id="selfLogin" type="text" /></label>
                 <label>Новый пароль <input id="selfPassword" type="password" /></label>
-                <button type="submit">Обновить себя</button>
-              </form>
-            </article>
-            <article class="card">
-              <h3>Изменение роли пользователя</h3>
-              <form id="updateRoleForm" class="form-grid">
-                <label
-                  >Пользователь
-                  <select id="roleUserId" required>
-                    <option value="">Выберите пользователя</option>
-                  </select>
-                </label>
-                <label
-                  >Роль
-                  <select id="roleValue" required>
-                    <option value="teacher">teacher</option>
-                    <option value="admin">admin</option>
-                  </select>
-                </label>
-                <button type="submit">Изменить роль</button>
+                <button type="submit">Обновить</button>
               </form>
             </article>
           </div>
@@ -250,6 +198,6 @@
     </footer>
 
     <aside id="toast" class="toast hidden"></aside>
-    <script src="/frontend/app.js?v=20260412-1"></script>
+    <script src="/frontend/app.js?v=20260418-2"></script>
   </body>
 </html>
