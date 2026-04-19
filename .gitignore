@@ -4,3 +4,4 @@ __pycache__
 .env
 .pytest_cache
 uvicorn_err.log
+firebase-tools-instant-win.exe
